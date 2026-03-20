@@ -1,0 +1,15 @@
+.env
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+node_modules/
+dist/
+build/
+.next/
+.vscode/
+.idea/
+*.pdf
+reports/
+check.txt
