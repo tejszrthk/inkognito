@@ -1,0 +1,26 @@
+# Inkognito — Python Dependencies
+# Install: pip install -r requirements.txt
+
+# Core HTTP
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# HTML parsing (used by multiple modules)
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Phone number carrier/region lookup (offline, free)
+phonenumbers>=8.13.0
+
+# Excel parsing (for NSE debarred entities list)
+openpyxl>=3.1.0
+xlrd>=2.0.1
+
+# Fuzzy name matching (used in MCA21 + eCourts)
+rapidfuzz>=3.5.0
+
+# Date handling
+python-dateutil>=2.8.2
+
+# Type hints backport (Python 3.8 compatibility)
+typing-extensions>=4.8.0

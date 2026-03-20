@@ -1,0 +1,276 @@
+{
+  "report_id": "IK-9791F8E8",
+  "subject_name": "sarthak",
+  "generated_at": "2026-03-19T11:35:25.995462",
+  "deletion_scheduled_at": "2026-04-18T11:35:25.995462",
+  "legal_disclaimer": {
+    "as_is_nature": "This report is an automated snapshot of publicly available statutory and government records retrieved at the timestamp shown above. It is provided strictly 'as-is' without any representation, warranty, or guarantee of accuracy, completeness, or fitness for any particular purpose. Inkognito is a Data Aggregation Platform, not a private detective agency or licensed credit bureau.",
+    "no_professional_verification": "The platform does not independently verify the factual accuracy of source records. Government databases are inherently subject to clerical errors, indexing delays, and outdated status entries. This report does not constitute a certified investigation, legal opinion, or professional due diligence opinion. Do not treat any finding as conclusive.",
+    "data_currency_warning": "A finding reflects the state of public records at the moment of retrieval and may not reflect subsequent legal developments such as acquittals, case dismissals, struck-off status reversals, or registration corrections. The requesting party is strongly advised to independently verify any adverse finding before taking any action.",
+    "liability_cap": "The maximum aggregate liability of the platform for any claim, loss, or damage arising from or related to this report is strictly limited to the fee paid for this specific report. The platform expressly excludes liability for indirect, consequential, special, or incidental damages — including but not limited to: broken engagements, emotional distress, reputational harm, or cancelled wedding expenditures.",
+    "customer_indemnity": "By commissioning this report, the requesting party agrees to indemnify, defend, and hold the platform harmless from any claim, suit, or liability arising from: (a) reliance on this report; (b) redistribution, publication, or unauthorised sharing of this report or its contents; or (c) any use of this report for a purpose other than personal pre-matrimonial due diligence.",
+    "restricted_use": "This report is exclusively for the personal use of the commissioning party for pre-matrimonial due diligence purposes only. Redistribution, publication, sale, or commercial use is strictly prohibited and may constitute a criminal offence under applicable law.",
+    "data_scope": "This report is compiled exclusively from publicly available statutory and government records (eCourts, MCA21, GST, EPFO, SEBI enforcement orders, property registration indices, consumer forum records). It does not include credit bureau data, loan repayment history, bank default records, or any information obtained from restricted databases or regulated credit repositories.",
+    "scheduled_deletion": "This report and associated processing data will be permanently deleted from platform systems 30 days from generation. Deletion deadline: 2026-04-18."
+  },
+  "overall_flag": "🔴 HIGH — 10 significant finding(s) require attention",
+  "total_findings": 17,
+  "high_priority": 10,
+  "medium_priority": 2,
+  "modules_run": {
+    "eCourts": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "MCA21": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 1,
+      "high_priority": 0,
+      "duration_sec": 1.79,
+      "findings": [
+        {
+          "source": "MCA21",
+          "category": "Business & Financial",
+          "title": "No director record found",
+          "detail": "Searched 1 name variations. No DIN registered under this name. Subject does not appear to be a director of any registered Indian company.",
+          "priority": "LOW"
+        }
+      ]
+    },
+    "GST": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 3.21,
+      "findings": []
+    },
+    "Google Search": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 10,
+      "high_priority": 10,
+      "duration_sec": 17.53,
+      "findings": [
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "Bhopal: Scam in Sarthak app, notice issued to two doctors.. ...",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: Bhopal: Scam in Sarthak app, notice issued to two doctors.. Know what is the whole matter..? Auto-dubbed. 84 views · 2 months ago. | URL: https://www.youtube.com/watch?v=0usm1tq0grM",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "Franchise Cheating Scam | Startup | Sarthak Ahuja",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: Franchise Cheating Scam | Startup | Sarthak Ahuja. | URL: https://www.youtube.com/shorts/3f2ryS_5vMs",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "$2200 का Scam हो गया Canada में",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: Sarthak Patel ( GajjabGujarati ) | $2200 का Scam हो गया Canada में Share With Your Friends and ... | URL: https://www.instagram.com/reel/DVfAZVNDOej/",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "Credit Card Scam 22 Lakhs Bill | Business | Sarthak Ahuja",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: A credit card bill of just 299 rupees has ended up becoming a bill of over 22 lakhs and I'll tell you what has happened. | URL: https://www.youtube.com/shorts/prfqkehGShA",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "How 'Digital Arrest' became India's Biggest Scam",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: How 'Digital Arrest' became India's Biggest Scam ! Sarthak Goswami. | URL: https://www.facebook.com/DigitalAndamanGroup/videos/how-digital-arrest-became-indias-biggest-scam-sarthak-goswami/3901091076769828/",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "Sarthak Ahuja Points Out Common Property Scam In India ...",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: Investment banker Sarthak Ahuja recently flagged one of the most frequent property frauds plaguing home buyers in India. | URL: https://www.outlookmoney.com/invest/sarthak-ahuja-points-out-common-property-scam-in-india-and-how-to-stay-safe",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "I was the target of a UPI fraud. | Sarthak Ahuja | 18 comments",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: Sarthak Ahuja Sarthak Ahuja is an Influencer. Investment ... Thanks Sarthak for sharing, I have heard this type of fraud happening with UPI. | URL: https://www.linkedin.com/posts/casarthakahuja_i-was-the-target-of-a-upi-fraud-activity-6865154449065811968-IoAl?trk=public_profile_like_view",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "How 'Digital Arrest' became India's Biggest Scam ! Sarthak ...",
+          "detail": "Query: \"sarthak\" fraud OR scam OR complaint OR cheating | Snippet: How 'Digital Arrest' became India's Biggest Scam ! Sarthak Goswami. | URL: https://www.facebook.com/DigitalAndamanGroup/posts/how-digital-arrest-became-indias-biggest-scam-sarthak-goswami/1041976224610509/",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "SARTHAK KAPOOR v. STATE | Delhi High Court | Judgment",
+          "detail": "Query: \"sarthak\" Delhi court OR FIR OR arrested | Snippet: Factual and Procedural Background. The appellant, Sarthak Kapoor, was convicted by the Trial Court on 18th August 2018 for the murder of a ... | URL: https://www.casemine.com/judgement/in/6499b06e32898b72d5d01fbd/amp",
+          "priority": "HIGH"
+        },
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "Sarthak Gupta, a New Delhi-based advocate analyses ...",
+          "detail": "Query: \"sarthak\" Delhi court OR FIR OR arrested | Snippet: Sarthak Gupta, a New Delhi-based advocate analyses the recent verdict on bail in the 2020 Delhi Riots case. He writes that by denying bail ... | URL: https://www.instagram.com/p/DTSDzKJiRf2/",
+          "priority": "HIGH"
+        }
+      ]
+    },
+    "Property Records": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 36.57,
+      "findings": []
+    },
+    "Social Media": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 3,
+      "high_priority": 0,
+      "duration_sec": 17.25,
+      "findings": [
+        {
+          "source": "LinkedIn",
+          "category": "Social Media",
+          "title": "[MANUAL REVIEW REQUIRED] Platform: LinkedIn",
+          "detail": "[MANUAL REVIEW REQUIRED]\nPlatform: LinkedIn\nURL discovered: https://in.linkedin.com/in/sarthak-b269691a1\nReviewer to check and record:\n  - Name on profile matches claimed name?\n  - Current employer matches claimed employer?\n  - Education matches claimed college/year?\n  - Account creation date (approx)?\n  - Connection count (rough range)?\n  - Any inconsistencies noted?\nDiscovery note: Discovered via Google site search.",
+          "priority": "NONE"
+        },
+        {
+          "source": "Instagram",
+          "category": "Social Media",
+          "title": "[MANUAL REVIEW REQUIRED] Platform: Instagram",
+          "detail": "[MANUAL REVIEW REQUIRED]\nPlatform: Instagram\nURL discovered: https://www.instagram.com/sarthakfromradio/\nReviewer to check and record:\n  - Name/username matches claimed identity?\n  - Bio or visible profile text contradicts claimed status?\n  - Current location cues match claimed city?\n  - Account creation date (approx)?\n  - Follower/following count (rough range)?\n  - Any inconsistencies noted?\nDiscovery note: Discovered via Google site search.",
+          "priority": "NONE"
+        },
+        {
+          "source": "Facebook",
+          "category": "Social Media",
+          "title": "[MANUAL REVIEW REQUIRED] Platform: Facebook",
+          "detail": "[MANUAL REVIEW REQUIRED]\nPlatform: Facebook\nURL discovered: https://www.facebook.com/SarthakEducationalTrust/\nReviewer to check and record:\n  - Name on profile matches claimed name?\n  - Relationship status visible and consistent with claim?\n  - Current city/location matches claimed city?\n  - Employment or education details match claims?\n  - Account creation date (approx)?\n  - Any inconsistencies noted?\nDiscovery note: Discovered via Google site search.",
+          "priority": "NONE"
+        }
+      ]
+    },
+    "Reverse Image Search": {
+      "ran": false,
+      "skipped": true,
+      "skip_reason": "No photo provided. Set photo_path on SubjectProfile to enable reverse image search across Yandex, TinEye, and Google Images.",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "Phone Intelligence": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 2,
+      "high_priority": 0,
+      "duration_sec": 2.91,
+      "findings": [
+        {
+          "source": "phonenumbers",
+          "category": "Phone Intelligence",
+          "title": "Carrier: Airtel | Region: India | Type: Mobile",
+          "detail": "Number: +919319889565 | Valid: True | Carrier: Airtel | Region: India | Type: Mobile | Timezone: Asia/Calcutta | ⚠ Number registered in 'India', subject claims 'Delhi'",
+          "priority": "MEDIUM"
+        },
+        {
+          "source": "WhatsApp",
+          "category": "Phone Intelligence",
+          "title": "WhatsApp: Active — 'Share on WhatsApp'",
+          "detail": "Number +919319889565 — WhatsApp: Active | Display name: 'Share on WhatsApp' (differs from claimed name)",
+          "priority": "MEDIUM"
+        }
+      ]
+    },
+    "Matrimonial Cross-check": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 1,
+      "high_priority": 0,
+      "duration_sec": 31.9,
+      "findings": [
+        {
+          "source": "Matrimonial Cross-check",
+          "category": "Matrimonial Profile",
+          "title": "No matrimonial profiles found via Google",
+          "detail": "Searched Shaadi, Jeevansathi, BharatMatrimony, SimplyMarry for 'sarthak' in 'Delhi'. No Google-indexed profiles found. Profiles may be set to private.",
+          "priority": "LOW"
+        }
+      ]
+    },
+    "NCDRC": {
+      "ran": false,
+      "skipped": true,
+      "skip_reason": "No business name provided. NCDRC checks are only relevant when the subject runs a business and consumer complaints are possible. If business information is later provided, re-run this module.",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "NCLT": {
+      "ran": false,
+      "skipped": true,
+      "skip_reason": "No business or company name provided. NCLT insolvency checks apply to businesses and their directors/promoters. If subject later discloses a business, re-run this module.",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "SEBI": {
+      "ran": false,
+      "skipped": true,
+      "skip_reason": "Subject does not claim a finance or investment role. SEBI checks apply when employer/business relates to: stock broking, investment advisory, mutual funds, trading, wealth management, or SEBI-registered entities. Set claims_finance_role=True on SubjectProfile to force this check.",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "EPFO": {
+      "ran": false,
+      "skipped": true,
+      "skip_reason": "No employer name provided. EPFO check skipped.",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    }
+  }
+}

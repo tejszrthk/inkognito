@@ -1,0 +1,205 @@
+{
+  "report_id": "IK-4BCEDA67",
+  "subject_name": "Rohan Sharma",
+  "generated_at": "2026-03-13T13:30:35.896612",
+  "deletion_scheduled_at": "2026-04-12T13:30:35.896612",
+  "legal_disclaimer": {
+    "as_is_nature": "This report is an automated snapshot of publicly available statutory and government records retrieved at the timestamp shown above. It is provided strictly 'as-is' without any representation, warranty, or guarantee of accuracy, completeness, or fitness for any particular purpose. Inkognito is a Data Aggregation Platform, not a private detective agency or licensed credit bureau.",
+    "no_professional_verification": "The platform does not independently verify the factual accuracy of source records. Government databases are inherently subject to clerical errors, indexing delays, and outdated status entries. This report does not constitute a certified investigation, legal opinion, or professional due diligence opinion. Do not treat any finding as conclusive.",
+    "data_currency_warning": "A finding reflects the state of public records at the moment of retrieval and may not reflect subsequent legal developments such as acquittals, case dismissals, struck-off status reversals, or registration corrections. The requesting party is strongly advised to independently verify any adverse finding before taking any action.",
+    "liability_cap": "The maximum aggregate liability of the platform for any claim, loss, or damage arising from or related to this report is strictly limited to the fee paid for this specific report. The platform expressly excludes liability for indirect, consequential, special, or incidental damages — including but not limited to: broken engagements, emotional distress, reputational harm, or cancelled wedding expenditures.",
+    "customer_indemnity": "By commissioning this report, the requesting party agrees to indemnify, defend, and hold the platform harmless from any claim, suit, or liability arising from: (a) reliance on this report; (b) redistribution, publication, or unauthorised sharing of this report or its contents; or (c) any use of this report for a purpose other than personal pre-matrimonial due diligence.",
+    "restricted_use": "This report is exclusively for the personal use of the commissioning party for pre-matrimonial due diligence purposes only. Redistribution, publication, sale, or commercial use is strictly prohibited and may constitute a criminal offence under applicable law.",
+    "data_scope": "This report is compiled exclusively from publicly available statutory and government records (eCourts, MCA21, GST, EPFO, SEBI enforcement orders, property registration indices, consumer forum records). It does not include credit bureau data, loan repayment history, bank default records, or any information obtained from restricted databases or regulated credit repositories.",
+    "scheduled_deletion": "This report and associated processing data will be permanently deleted from platform systems 30 days from generation. Deletion deadline: 2026-04-12."
+  },
+  "overall_flag": "🟡 MEDIUM — 2 item(s) to review with subject",
+  "total_findings": 7,
+  "high_priority": 0,
+  "medium_priority": 2,
+  "modules_run": {
+    "eCourts": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "MCA21": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "GST": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 9.26,
+      "findings": []
+    },
+    "Google Search": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 1,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": [
+        {
+          "source": "Google Search",
+          "category": "Web Presence",
+          "title": "Manual Google Search Required",
+          "detail": "Automated Google search unavailable (SERP_API_KEY not configured). Manually search these queries:\n  • \"Rohan Sharma\" fraud OR scam OR complaint OR cheating\n  • \"Rohan Sharma\" Mumbai court OR FIR OR arrested\n  • \"Rohan Sharma\" Mumbai\n  • \"Rohan Sharma\" Reliance",
+          "priority": "NONE"
+        }
+      ]
+    },
+    "Property Records": {
+      "ran": false,
+      "skipped": true,
+      "skip_reason": "No Delhi or UP location found in subject profile. Property records search covers Delhi NGDRS and IGRS UP. Populate current_city, native_city, or known_property_areas with a Delhi/NCR or UP location to enable this check.",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "Social Media": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 3,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": [
+        {
+          "source": "LinkedIn",
+          "category": "Social Media",
+          "title": "[MANUAL REVIEW REQUIRED] Platform: LinkedIn",
+          "detail": "[MANUAL REVIEW REQUIRED]\nPlatform: LinkedIn\nURL discovered: linkedin.com/in/rohan\nReviewer to check and record:\n  - Name on profile matches claimed name?\n  - Current employer matches claimed employer?\n  - Education matches claimed college/year?\n  - Account creation date (approx)?\n  - Connection count (rough range)?\n  - Any inconsistencies noted?",
+          "priority": "NONE"
+        },
+        {
+          "source": "Instagram",
+          "category": "Social Media",
+          "title": "[MANUAL REVIEW REQUIRED] Platform: Instagram",
+          "detail": "[MANUAL REVIEW REQUIRED]\nPlatform: Instagram\nURL discovered: Not discovered via Google site search\nReviewer to check and record:\n  - Name/username matches claimed identity?\n  - Bio or visible profile text contradicts claimed status?\n  - Current location cues match claimed city?\n  - Account creation date (approx)?\n  - Follower/following count (rough range)?\n  - Any inconsistencies noted?\nDiscovery note: SERP_API_KEY not set; Google site discovery unavailable.",
+          "priority": "NONE"
+        },
+        {
+          "source": "Facebook",
+          "category": "Social Media",
+          "title": "[MANUAL REVIEW REQUIRED] Platform: Facebook",
+          "detail": "[MANUAL REVIEW REQUIRED]\nPlatform: Facebook\nURL discovered: Not discovered via Google site search\nReviewer to check and record:\n  - Name on profile matches claimed name?\n  - Relationship status visible and consistent with claim?\n  - Current city/location matches claimed city?\n  - Employment or education details match claims?\n  - Account creation date (approx)?\n  - Any inconsistencies noted?\nDiscovery note: SERP_API_KEY not set; Google site discovery unavailable.",
+          "priority": "NONE"
+        }
+      ]
+    },
+    "Reverse Image Search": {
+      "ran": false,
+      "skipped": true,
+      "skip_reason": "No photo provided. Set photo_path on SubjectProfile to enable reverse image search across Yandex, TinEye, and Google Images.",
+      "success": false,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": []
+    },
+    "Phone Intelligence": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 2,
+      "high_priority": 0,
+      "duration_sec": 3.24,
+      "findings": [
+        {
+          "source": "phonenumbers",
+          "category": "Phone Intelligence",
+          "title": "Carrier: Airtel | Region: India | Type: Mobile",
+          "detail": "Number: +919876543210 | Valid: True | Carrier: Airtel | Region: India | Type: Mobile | Timezone: Asia/Calcutta | ⚠ Number registered in 'India', subject claims 'Mumbai'",
+          "priority": "MEDIUM"
+        },
+        {
+          "source": "WhatsApp",
+          "category": "Phone Intelligence",
+          "title": "WhatsApp: Active — 'Hitesh Sevlani'",
+          "detail": "Number +919876543210 — WhatsApp: Active | Display name: 'Hitesh Sevlani' (differs from claimed name)",
+          "priority": "MEDIUM"
+        }
+      ]
+    },
+    "Matrimonial Cross-check": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 1,
+      "high_priority": 0,
+      "duration_sec": 0.0,
+      "findings": [
+        {
+          "source": "Matrimonial Cross-check",
+          "category": "Matrimonial Profile",
+          "title": "No matrimonial profiles found via Google",
+          "detail": "Searched Shaadi, Jeevansathi, BharatMatrimony, SimplyMarry for 'Rohan Sharma' in 'Mumbai'. No Google-indexed profiles found. Profiles may be set to private.",
+          "priority": "LOW"
+        }
+      ]
+    },
+    "NCDRC": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 7.58,
+      "findings": []
+    },
+    "NCLT": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 6.66,
+      "findings": []
+    },
+    "SEBI": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 1.66,
+      "findings": []
+    },
+    "EPFO": {
+      "ran": true,
+      "skipped": false,
+      "skip_reason": "",
+      "success": true,
+      "findings_count": 0,
+      "high_priority": 0,
+      "duration_sec": 3.69,
+      "findings": []
+    }
+  }
+}

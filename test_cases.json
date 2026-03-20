@@ -1,0 +1,133 @@
+[
+  {
+    "id": 1,
+    "label": "Minimum profile - name + city only",
+    "description": "Exercises always-run modules with minimal data. Conditional modules (EPFO, NCLT, SEBI) should all SKIP.",
+    "subject": {
+      "full_name": "Rahul Kumar Sharma",
+      "current_city": "Delhi"
+    },
+    "expect_skipped": [
+      "EPFO",
+      "NCLT",
+      "SEBI",
+      "Reverse Image Search",
+      "Phone Intelligence"
+    ],
+    "expect_ran": [
+      "eCourts",
+      "MCA21",
+      "GST",
+      "Google Search",
+      "Property Records",
+      "Social Media",
+      "Matrimonial Cross-check"
+    ]
+  },
+  {
+    "id": 2,
+    "label": "Business owner profile - full conditional triggers",
+    "description": "Subject claims to run a business. Triggers NCDRC + NCLT + SEBI + EPFO.",
+    "subject": {
+      "full_name": "Priya Singh Kapoor",
+      "current_city": "Mumbai",
+      "age": 29,
+      "native_city": "Lucknow",
+      "mobile": "9820000001",
+      "employer_name": "Morgan Stanley",
+      "business_name": "PSK Wealth Advisors",
+      "company_name": "PSK Wealth Advisors Pvt Ltd",
+      "known_property_areas": [
+        "Noida",
+        "Delhi"
+      ]
+    },
+    "expect_skipped": [
+      "Reverse Image Search"
+    ],
+    "expect_ran": [
+      "eCourts",
+      "MCA21",
+      "GST",
+      "EPFO",
+      "NCDRC",
+      "NCLT",
+      "SEBI",
+      "Phone Intelligence",
+      "Property Records"
+    ]
+  },
+  {
+    "id": 3,
+    "label": "UP-based profile - property records focus",
+    "description": "Tests IGRS UP district resolution + CERSAI. Phone intel and social media also triggered.",
+    "subject": {
+      "full_name": "Amit Verma",
+      "current_city": "Meerut",
+      "age": 34,
+      "native_city": "Agra",
+      "mobile": "9012000002",
+      "instagram_username": "amit.verma.mrt",
+      "known_property_areas": [
+        "Meerut",
+        "Ghaziabad"
+      ]
+    },
+    "expect_skipped": [
+      "EPFO",
+      "NCLT",
+      "NCDRC",
+      "SEBI",
+      "Reverse Image Search"
+    ],
+    "expect_ran": [
+      "eCourts",
+      "MCA21",
+      "GST",
+      "Property Records",
+      "Social Media",
+      "Phone Intelligence",
+      "Matrimonial Cross-check"
+    ]
+  },
+  {
+    "id": 4,
+    "label": "Maximum profile - all fields provided",
+    "description": "All optional fields set. Every module should attempt to run. Uses a dummy photo path - image module will skip gracefully if file doesn't exist.",
+    "subject": {
+      "full_name": "Vikram Anand Mehra",
+      "current_city": "Bangalore",
+      "age": 31,
+      "native_city": "Delhi",
+      "mobile": "9810000003",
+      "employer_name": "Goldman Sachs",
+      "business_name": "Mehra Capital",
+      "company_name": "Mehra Capital Advisors Pvt Ltd",
+      "linkedin_url": "https://linkedin.com/in/vikramehra",
+      "instagram_username": "vikram.mehra",
+      "facebook_profile_id": "vikram.mehra.99",
+      "photo_path": "./test_photo.jpg",
+      "education_college": "IIM Ahmedabad",
+      "education_year": 2016,
+      "known_property_areas": [
+        "Delhi",
+        "Noida"
+      ]
+    },
+    "expect_skipped": [],
+    "expect_ran": [
+      "eCourts",
+      "MCA21",
+      "GST",
+      "Google Search",
+      "Property Records",
+      "Social Media",
+      "Phone Intelligence",
+      "Matrimonial Cross-check",
+      "NCDRC",
+      "NCLT",
+      "SEBI",
+      "EPFO"
+    ]
+  }
+]
