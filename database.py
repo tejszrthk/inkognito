@@ -1,11 +1,7 @@
-import os
-import sqlite3
-import bcrypt
-import json
+import os, sqlite3, bcrypt, json
 from datetime import datetime
 from urllib.parse import urlparse
 
-# Optional Postgres
 try:
     import psycopg2
     from psycopg2.extras import RealDictCursor
@@ -17,11 +13,12 @@ class Database:
     def __init__(self, url=None):
         self.url = url or os.getenv("DATABASE_URL")
         self.is_pg = False
-        if self.url and (self.url.startswith("postgre") or "rlwy.net" in self.url):
+        if self.url and ("postgre" in self.url or "rlwy.net" in self.url):
             if HAS_POSTGRES: self.is_pg = True
-            else: print("⚠️ psycopg2 missing; using SQLite.")
+            else: print("⚠️ psycopg2-binary missing; falling back to SQLite.")
         
-        self._init_schema()
+        try: self._init_schema()
+        except Exception as e: print(f"⚠️ DB Init Delayed: {e}")
 
     def _conn(self):
         if self.is_pg:
@@ -30,7 +27,8 @@ class Database:
                 database=p.path.lstrip('/'),
                 user=p.username, password=p.password,
                 host=p.hostname, port=p.port,
-                cursor_factory=RealDictCursor
+                cursor_factory=RealDictCursor,
+                connect_timeout=5
             )
         else:
             c = sqlite3.connect("nk.db")
@@ -47,7 +45,7 @@ class Database:
                 cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
                 cur.execute("CREATE TABLE IF NOT EXISTS reports (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INT, report_id TEXT UNIQUE, name TEXT, date DATETIME, path TEXT)")
             cn.commit()
-            print(f"✅ DB: {'PostgreSQL' if self.is_pg else 'SQLite'}")
+            print(f"✅ DB Ready: {'PostgreSQL' if self.is_pg else 'SQLite'}")
 
     def reg(self, u, p):
         try:
@@ -62,7 +60,9 @@ class Database:
                     uid = cur.lastrowid
                 cn.commit()
                 return str(uid)
-        except: return None
+        except Exception as e:
+            print(f"❌ Reg error: {e}")
+            return None
 
     def auth(self, u, p):
         try:
@@ -87,16 +87,20 @@ class Database:
         except: return None
 
     def save_report(self, uid, rid, name, path):
-        with self._conn() as cn:
-            cur = cn.cursor()
-            dt = datetime.now()
-            if self.is_pg: cur.execute("INSERT INTO reports (user_id, report_id, name, date, path) VALUES (%s, %s, %s, %s, %s)", (int(uid), rid, name, dt, path))
-            else: cur.execute("INSERT INTO reports (user_id, report_id, name, date, path) VALUES (?, ?, ?, ?, ?)", (int(uid), rid, name, dt, path))
-            cn.commit()
+        try:
+            with self._conn() as cn:
+                cur = cn.cursor()
+                dt = datetime.now()
+                if self.is_pg: cur.execute("INSERT INTO reports (user_id, report_id, name, date, path) VALUES (%s, %s, %s, %s, %s)", (int(uid), rid, name, dt, path))
+                else: cur.execute("INSERT INTO reports (user_id, report_id, name, date, path) VALUES (?, ?, ?, ?, ?)", (int(uid), rid, name, dt, path))
+                cn.commit()
+        except Exception as e: print(f"❌ Save report error: {e}")
 
     def get_reports(self, uid):
-        with self._conn() as cn:
-            cur = cn.cursor()
-            if self.is_pg: cur.execute("SELECT * FROM reports WHERE user_id = %s ORDER BY date DESC", (int(uid),))
-            else: cur.execute("SELECT * FROM reports WHERE user_id = ?", (int(uid),))
-            return [{"report_id":r['report_id'], "subject_name":r['name'], "generated_at":str(r['date']), "report_path":r['path']} for r in cur.fetchall()]
+        try:
+            with self._conn() as cn:
+                cur = cn.cursor()
+                if self.is_pg: cur.execute("SELECT * FROM reports WHERE user_id = %s ORDER BY date DESC", (int(uid),))
+                else: cur.execute("SELECT * FROM reports WHERE user_id = ? ORDER BY date DESC", (int(uid),))
+                return [{"report_id":r['report_id'], "subject_name":r['name'], "generated_at":str(r['date']), "report_path":r['path']} for r in cur.fetchall()]
+        except: return []
