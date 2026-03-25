@@ -281,236 +281,11 @@ function buildReportModules(report, snapshot) {
   });
 }
 
-
-function App() {
-  const [auth, setAuth] = useState(() => readStoredAuth());
-  const [view, setView] = useState(auth.token ? 'dashboard' : 'auth');
-  const [form, setForm] = useState({
-    name: '',
-    phone: '',
-    city: '',
-    employer: '',
-    business: '',
-    financeRole: false,
-    socialUrls: ''
-  });
-
-  const [runError, setRunError] = useState('');
-  const [runJobId, setRunJobId] = useState('');
-  const [jobSnapshot, setJobSnapshot] = useState(null);
-  const [reportData, setReportData] = useState(null);
-
-  useEffect(() => {
-    writeStoredAuth(auth.token, auth.user);
-  }, [auth]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch(apiUrl('/api/logout'), {
-        method: 'POST',
-        headers: getAuthHeaders(auth.token)
-      });
-    } catch (_err) {}
-    setAuth({ token: null, user: null });
-    setView('auth');
-  };
-
-  const activeModules = MODULE_CONFIG.map((mod) => {
-    let active = mod.defaultActive;
-    if (mod.trigger === 'business' && form.business.trim()) active = true;
-    if (mod.trigger === 'employer' && form.employer.trim()) active = true;
-    if (mod.trigger === 'finance' && form.financeRole) active = true;
-    return { ...mod, active };
-  });
-
-  const handleRun = async (e) => {
-    e.preventDefault();
-
-    if (!form.name.trim() || !form.phone.trim() || !form.city.trim()) {
-      alert('Name, Phone, and City are required.');
-      return;
-    }
-
-    const payload = {
-      name: form.name.trim(),
-      phone: form.phone.trim(),
-      city: form.city.trim(),
-      employer: form.employer.trim(),
-      business: form.business.trim(),
-      financeRole: form.financeRole,
-      socialUrls: form.socialUrls.trim()
-    };
-
-    setRunError('');
-    setRunJobId('');
-    setJobSnapshot(null);
-    setReportData(null);
-
-    try {
-      const response = await fetch(apiUrl('/api/run'), {
-        method: 'POST',
-        headers: getAuthHeaders(auth.token),
-        body: JSON.stringify(payload)
-      });
-
-      const data = await parseApiResponse(response, 'start verification run');
-
-      setRunJobId(data.job_id || '');
-      setJobSnapshot(data);
-      setView('pipeline');
-    } catch (err) {
-      setRunError(err.message || 'Unable to start verification.');
-      setView('input');
-    }
-  };
-
-  const handleNewVerification = () => {
-    setView('consent');
-    setRunError('');
-    setRunJobId('');
-    setJobSnapshot(null);
-    setReportData(null);
-    setForm({
-      name: '',
-      phone: '',
-      city: '',
-      employer: '',
-      business: '',
-      financeRole: false,
-      socialUrls: ''
-    });
-  };
-
-  return (
-    <div className="container">
-      <header className="app-header">
-        <div className="brand">
-          <div className="brand-logo">
-            <ICONS.ShieldCheck style={{ width: 28, height: 28, color: 'var(--accent-gold)' }} />
-            INKOGNITO
-          </div>
-          <div className="brand-subtitle">Public Records Data Aggregation Service</div>
-        </div>
-        
-        {auth.user && (
-          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <div className="user-identity">
-              <ICONS.User size={14} />
-              <span>LOGGED IN AS <strong>{auth.user.username}</strong></span>
-              <button className="btn-logout" onClick={handleLogout}>LOGOUT</button>
-            </div>
-            {(view === 'report' || view === 'input' || view === 'pipeline') && (
-              <button className="btn-text" onClick={() => setView('dashboard')}>Dashboard</button>
-            )}
-            {view === 'report' && (
-              <button className="btn-primary" onClick={handleNewVerification}>New Verification</button>
-            )}
-          </div>
-        )}
-      </header>
-
-      {view === 'auth' && (
-        <AuthView 
-          onLogin={(token, user) => {
-            setAuth({ token, user });
-            setView('dashboard');
-          }} 
-        />
-      )}
-      
-      {view === 'consent' && (
-        <ConsentView onAccept={() => setView('input')} />
-      )}
-
-      {view === 'dashboard' && (
-        <DashboardView 
-          token={auth.token}
-          onNew={() => setView('consent')}
-          onViewReport={(report) => {
-            setForm({
-              name: report.subject_name || '',
-              city: report.generated_at || '', // dummy for report view
-              phone: '', employer: '', business: '', financeRole: false, socialUrls: ''
-            });
-            setReportData(null); // Fetch detail if needed, or just pass enough
-            // For now, let's just trigger a pseudo-report view
-            // In a real app we'd fetch the full JSON from report_path or another API
-            // but the simplified backend only serves saved reports as files.
-            // Let's assume the user can click and we fetch the detail.
-            fetchReportDetail(report.report_id);
-          }}
-        />
-      )}
-
-      {view === 'input' && (
-        <InputView
-          form={form}
-          setForm={setForm}
-          activeModules={activeModules}
-          handleRun={handleRun}
-          runError={runError}
-        />
-      )}
-
-      {view === 'pipeline' && (
-        <PipelineView
-          jobId={runJobId}
-          initialModules={jobSnapshot && Array.isArray(jobSnapshot.modules) ? jobSnapshot.modules : []}
-          onSnapshot={(snapshot) => setJobSnapshot(snapshot)}
-          onComplete={(snapshot) => {
-            setJobSnapshot(snapshot);
-            setReportData(snapshot.report || null);
-            setRunError('');
-            setView('report');
-          }}
-          onFail={(snapshot) => {
-            setJobSnapshot(snapshot);
-            setReportData(snapshot.report || null);
-            setRunError(snapshot.error || 'Run failed.');
-            setView('report');
-          }}
-        />
-      )}
-
-      {view === 'report' && (
-        <ReportView
-          subject={form}
-          snapshot={jobSnapshot}
-          report={reportData}
-          runError={runError}
-        />
-      )}
-    </div>
-  );
-
-  async function fetchReportDetail(reportId) {
-    try {
-      // In this setup, we don't have a direct "get report by ID" API yet
-      // but we can add a simple one or just simulate it.
-      // Let's assume we want to show the report view.
-      // We'll update the backend to support GET /api/reports/<id> if not already there
-      // Wait, api_server.py doesn't have GET /api/reports/<id> yet.
-      // I'll add it to the backend next.
-      
-      const response = await fetch(apiUrl(`/api/jobs/report-${reportId}`), {
-        headers: getAuthHeaders(auth.token)
-      });
-      // This is a hack because JOBS are ephemeral. 
-      // A better way is to serve the JSON files.
-      // For now, I'll alert that it's coming soon if not found.
-      if (response.ok) {
-        const data = await response.json();
-        setReportData(data.report);
-        setJobSnapshot(data);
-        setView('report');
-      } else {
-        alert("Report detail loading from disk not implemented in this demo backend. JOBS are in-memory only.");
-      }
-    } catch (err) {
-      alert("Error loading report: " + err.message);
-    }
-  }
-}
+const ICONS_EXT = {
+  ChevronRight: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="9 18 15 12 9 6"/></svg>
+};
+// Merging extended icons
+Object.assign(ICONS, ICONS_EXT);
 
 function ConsentView({ onAccept }) {
   const [checked, setChecked] = useState(false);
@@ -1080,11 +855,234 @@ function DashboardView({ token, onNew, onViewReport }) {
   );
 }
 
-const ICONS_EXT = {
-  ChevronRight: (props) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><polyline points="9 18 15 12 9 6"/></svg>
-};
-// Merging extended icons
-Object.assign(ICONS, ICONS_EXT);
+function App() {
+  const [auth, setAuth] = useState(() => readStoredAuth());
+  const [view, setView] = useState(auth.token ? 'dashboard' : 'auth');
+  const [form, setForm] = useState({
+    name: '',
+    phone: '',
+    city: '',
+    employer: '',
+    business: '',
+    financeRole: false,
+    socialUrls: ''
+  });
+
+  const [runError, setRunError] = useState('');
+  const [runJobId, setRunJobId] = useState('');
+  const [jobSnapshot, setJobSnapshot] = useState(null);
+  const [reportData, setReportData] = useState(null);
+
+  useEffect(() => {
+    writeStoredAuth(auth.token, auth.user);
+  }, [auth]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch(apiUrl('/api/logout'), {
+        method: 'POST',
+        headers: getAuthHeaders(auth.token)
+      });
+    } catch (_err) {}
+    setAuth({ token: null, user: null });
+    setView('auth');
+  };
+
+  const activeModules = MODULE_CONFIG.map((mod) => {
+    let active = mod.defaultActive;
+    if (mod.trigger === 'business' && form.business.trim()) active = true;
+    if (mod.trigger === 'employer' && form.employer.trim()) active = true;
+    if (mod.trigger === 'finance' && form.financeRole) active = true;
+    return { ...mod, active };
+  });
+
+  const handleRun = async (e) => {
+    e.preventDefault();
+
+    if (!form.name.trim() || !form.phone.trim() || !form.city.trim()) {
+      alert('Name, Phone, and City are required.');
+      return;
+    }
+
+    const payload = {
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      city: form.city.trim(),
+      employer: form.employer.trim(),
+      business: form.business.trim(),
+      financeRole: form.financeRole,
+      socialUrls: form.socialUrls.trim()
+    };
+
+    setRunError('');
+    setRunJobId('');
+    setJobSnapshot(null);
+    setReportData(null);
+
+    try {
+      const response = await fetch(apiUrl('/api/run'), {
+        method: 'POST',
+        headers: getAuthHeaders(auth.token),
+        body: JSON.stringify(payload)
+      });
+
+      const data = await parseApiResponse(response, 'start verification run');
+
+      setRunJobId(data.job_id || '');
+      setJobSnapshot(data);
+      setView('pipeline');
+    } catch (err) {
+      setRunError(err.message || 'Unable to start verification.');
+      setView('input');
+    }
+  };
+
+  const handleNewVerification = () => {
+    setView('consent');
+    setRunError('');
+    setRunJobId('');
+    setJobSnapshot(null);
+    setReportData(null);
+    setForm({
+      name: '',
+      phone: '',
+      city: '',
+      employer: '',
+      business: '',
+      financeRole: false,
+      socialUrls: ''
+    });
+  };
+
+  return (
+    <div className="container">
+      <header className="app-header">
+        <div className="brand">
+          <div className="brand-logo">
+            <ICONS.ShieldCheck style={{ width: 28, height: 28, color: 'var(--accent-gold)' }} />
+            INKOGNITO
+          </div>
+          <div className="brand-subtitle">Public Records Data Aggregation Service</div>
+        </div>
+        
+        {auth.user && (
+          <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div className="user-identity">
+              <ICONS.User size={14} />
+              <span>LOGGED IN AS <strong>{auth.user.username}</strong></span>
+              <button className="btn-logout" onClick={handleLogout}>LOGOUT</button>
+            </div>
+            {(view === 'report' || view === 'input' || view === 'pipeline') && (
+              <button className="btn-text" onClick={() => setView('dashboard')}>Dashboard</button>
+            )}
+            {view === 'report' && (
+              <button className="btn-primary" onClick={handleNewVerification}>New Verification</button>
+            )}
+          </div>
+        )}
+      </header>
+
+      {view === 'auth' && (
+        <AuthView 
+          onLogin={(token, user) => {
+            setAuth({ token, user });
+            setView('dashboard');
+          }} 
+        />
+      )}
+      
+      {view === 'consent' && (
+        <ConsentView onAccept={() => setView('input')} />
+      )}
+
+      {view === 'dashboard' && (
+        <DashboardView 
+          token={auth.token}
+          onNew={() => setView('consent')}
+          onViewReport={(report) => {
+            setForm({
+              name: report.subject_name || '',
+              city: report.generated_at || '', // dummy for report view
+              phone: '', employer: '', business: '', financeRole: false, socialUrls: ''
+            });
+            setReportData(null); // Fetch detail if needed, or just pass enough
+            // For now, let's just trigger a pseudo-report view
+            // In a real app we'd fetch the full JSON from report_path or another API
+            // but the simplified backend only serves saved reports as files.
+            // Let's assume the user can click and we fetch the detail.
+            fetchReportDetail(report.report_id);
+          }}
+        />
+      )}
+
+      {view === 'input' && (
+        <InputView
+          form={form}
+          setForm={setForm}
+          activeModules={activeModules}
+          handleRun={handleRun}
+          runError={runError}
+        />
+      )}
+
+      {view === 'pipeline' && (
+        <PipelineView
+          jobId={runJobId}
+          initialModules={jobSnapshot && Array.isArray(jobSnapshot.modules) ? jobSnapshot.modules : []}
+          onSnapshot={(snapshot) => setJobSnapshot(snapshot)}
+          onComplete={(snapshot) => {
+            setJobSnapshot(snapshot);
+            setReportData(snapshot.report || null);
+            setRunError('');
+            setView('report');
+          }}
+          onFail={(snapshot) => {
+            setJobSnapshot(snapshot);
+            setReportData(snapshot.report || null);
+            setRunError(snapshot.error || 'Run failed.');
+            setView('report');
+          }}
+        />
+      )}
+
+      {view === 'report' && (
+        <ReportView
+          subject={form}
+          snapshot={jobSnapshot}
+          report={reportData}
+          runError={runError}
+        />
+      )}
+    </div>
+  );
+
+  async function fetchReportDetail(reportId) {
+    try {
+      const response = await fetch(apiUrl(`/api/jobs/report-${reportId}`), {
+        headers: getAuthHeaders(auth.token)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setReportData(data.report);
+        setJobSnapshot(data);
+        setView('report');
+      } else {
+        alert("Report detail not found. It may have been deleted or moved.");
+      }
+    } catch (err) {
+      alert("Error loading report: " + err.message);
+    }
+  }
+}
+
+
+
+
+
+
+
+
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
