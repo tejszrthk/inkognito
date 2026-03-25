@@ -416,6 +416,10 @@ function App() {
           }} 
         />
       )}
+      
+      {view === 'consent' && (
+        <ConsentView onAccept={() => setView('input')} />
+      )}
 
       {view === 'dashboard' && (
         <DashboardView 

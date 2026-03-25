@@ -736,6 +736,7 @@ def run_ncdrc(subject: SubjectProfile, ctx: PipelineContext) -> ModuleResult:
 
 MCA_API_PROVIDER = os.getenv("MCA_API_PROVIDER", "surepass")
 MCA_API_KEY      = os.getenv("MCA_API_KEY", "")
+MCA_API_SECRET   = os.getenv("MCA_API_SECRET", "")
 
 # Endpoint map per provider
 _MCA_ENDPOINTS = {
@@ -766,7 +767,13 @@ _MCA_ENDPOINTS = {
 def _mca_headers() -> dict:
     """Build auth headers for whichever MCA API provider is configured."""
     ep = _MCA_ENDPOINTS.get(MCA_API_PROVIDER, _MCA_ENDPOINTS["surepass"])
-    return {ep["auth_header"]: f"{ep['auth_prefix']}{MCA_API_KEY}"}
+    headers = {ep["auth_header"]: f"{ep['auth_prefix']}{MCA_API_KEY}"}
+    
+    # Sandbox requires an additional x-api-secret header
+    if MCA_API_PROVIDER == "sandbox" and MCA_API_SECRET:
+        headers["x-api-secret"] = MCA_API_SECRET
+        
+    return headers
 
 
 def _mca_get(session, endpoint_key: str, params: dict = None,
