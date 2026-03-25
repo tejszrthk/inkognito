@@ -21,6 +21,7 @@ from datetime import datetime
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+from typing import Any
 
 from inkognito_models import SubjectProfile
 from inkognito_pipeline import SearchPipeline, save_report
@@ -54,11 +55,11 @@ JOBS_LOCK = threading.Lock()
 
 
 def _now_iso() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now().isoformat()
 
 
 def _parse_social_urls(raw_urls: str) -> dict:
-    parsed = {
+    parsed: dict[str, str | None] = {
         "linkedin_url": None,
         "instagram_username": None,
         "facebook_profile_id": None,
@@ -160,7 +161,7 @@ def _job_payload(job: dict) -> dict:
         "created_at": job["created_at"],
         "started_at": job.get("started_at"),
         "finished_at": job.get("finished_at"),
-        "elapsed_sec": round(_elapsed_seconds(job), 2),
+        "elapsed_sec": float(round(_elapsed_seconds(job), 2)),
         "modules": job["modules"],
         "current_module": job.get("current_module", ""),
         "report_id": job.get("report_id", ""),
@@ -258,9 +259,9 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FRONTEND_DIR), **kwargs)
 
-    def log_message(self, fmt, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         # Keep server logs concise.
-        print("[api]" + fmt % args)
+        print("[api] " + (format % args))
 
     def _send_json(self, status: int, payload: dict):
         body = json.dumps(payload).encode("utf-8")
@@ -353,7 +354,8 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
                 self._send_json(400, {"error": str(exc)})
                 return
 
-            job_id = uuid.uuid4().hex[:12]
+            job_id_full = uuid.uuid4().hex
+            job_id = job_id_full[:12]
             modules = _initial_modules()
 
             with JOBS_LOCK:
@@ -421,7 +423,7 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
             
             # Special case for historical reports: /api/jobs/report-<id>
             if job_id.startswith("report-"):
-                report_id = job_id[7:]
+                report_id = job_id.replace("report-", "")
                 user = self._get_auth_user()
                 user_id = user["id"] if user else None
                 
@@ -430,14 +432,29 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
                     return
                 
                 # Check database for this report
-                with DB._get_connection() as conn:
-                    row = conn.execute(
-                        "SELECT report_path, subject_name FROM reports WHERE report_id = ? AND user_id = ?",
-                        (report_id, user_id)
-                    ).fetchone()
+                report_row = None
+                conn = DB._get_connection()
+                try:
+                    if DB.is_postgres:
+                        from psycopg2.extras import RealDictCursor
+                        cur = conn.cursor(cursor_factory=RealDictCursor)
+                        cur.execute(
+                            "SELECT report_path, subject_name FROM reports WHERE report_id = %s AND user_id = %s",
+                            (report_id, user_id)
+                        )
+                        report_row = cur.fetchone()
+                        cur.close()
+                    else:
+                        row = conn.execute(
+                            "SELECT report_path, subject_name FROM reports WHERE report_id = ? AND user_id = ?",
+                            (report_id, user_id)
+                        ).fetchone()
+                        if row: report_row = dict(row)
+                finally:
+                    conn.close()
                 
-                if row and os.path.exists(row["report_path"]):
-                    with open(row["report_path"], "r") as f:
+                if report_row and os.path.exists(report_row["report_path"]):
+                    with open(report_row["report_path"], "r") as f:
                         report_json = json.load(f)
                     self._send_json(200, {
                         "job_id": job_id,

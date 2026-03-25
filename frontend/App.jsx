@@ -281,6 +281,7 @@ function buildReportModules(report, snapshot) {
   });
 }
 
+
 function App() {
   const [auth, setAuth] = useState(() => readStoredAuth());
   const [view, setView] = useState(auth.token ? 'dashboard' : 'auth');
