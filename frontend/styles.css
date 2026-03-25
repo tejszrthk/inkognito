@@ -61,22 +61,60 @@ h1, h2, h3, h4, .serif-heading {
   letter-spacing: 0.05em;
 }
 
-input[type="text"], input[type="password"], input[type="tel"], textarea {
+input, textarea, select {
   width: 100%;
   background: var(--bg-input);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-radius: 12px;
+  padding: 14px 18px;
   color: var(--text-primary);
   font-size: 1rem;
   transition: var(--transition-smooth);
+  font-family: inherit;
 }
 
 input:focus {
   outline: none;
   border-color: var(--accent-gold);
   box-shadow: 0 0 0 4px var(--accent-gold-soft);
+  background: var(--bg-panel);
 }
+
+.auth-card {
+  background: rgba(20, 22, 26, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-gold);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  padding: 48px;
+  border-radius: 24px;
+}
+
+.stat-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  padding: 24px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+}
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-gold { background: var(--accent-gold-soft); color: var(--accent-gold); border: 1px solid var(--border-gold); }
 
 .btn {
   display: inline-flex;
