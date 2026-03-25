@@ -3,194 +3,245 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inkognito — Public Records Data Aggregation</title>
-  
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-  
+  <title>Inkognito — Premium Public Records Verification</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
   <div id="root"></div>
 
-  <!-- React & DOM -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  
-  <!-- Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- App -->
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
 
-    // --- API ---
-    const API_URL = '/api';
-    const authH = () => ({ 'Authorization': 'Bearer ' + (localStorage.getItem('inkognito_token') || '') });
-    const hRes = async (r) => {
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(d.error || 'Network Error');
-        return d;
-    };
-    const api = {
-        login: (u, p) => fetch(`${API_URL}/login`, { method:'POST', body:JSON.stringify({username:u, password:p}) }).then(hRes),
-        user: () => fetch(`${API_URL}/user`, { headers:authH() }).then(hRes),
-        reports: () => fetch(`${API_URL}/reports`, { headers:authH() }).then(hRes),
-        status: (id) => fetch(`${API_URL}/jobs/${id}`, { headers:authH() }).then(hRes),
-        run: (p) => fetch(`${API_URL}/run`, { method:'POST', headers:{...authH(), 'Content-Type':'application/json'}, body:JSON.stringify(p) }).then(hRes)
+    // --- API Helper ---
+    const API = {
+        h: () => ({ 'Authorization': `Bearer ${localStorage.getItem('inkognito_token') || ''}`, 'Content-Type': 'application/json' }),
+        req: async (path, opt = {}) => {
+            const r = await fetch(`/api${path}`, { ...opt, headers: { ...API.h(), ...opt.headers } });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.err || 'Request failed');
+            return d;
+        }
     };
 
-    // --- Components ---
+    // --- Shared Components ---
     function Icon({ name, size = 18, color = "currentColor", className = "" }) {
-        useEffect(() => {
-            try { if (window.lucide) window.lucide.createIcons(); } catch(e) {}
-        }, [name]);
-        return <i data-lucide={name} className={className} style={{ width: size, height: size, color: color, display:'inline-block' }}></i>;
+        useEffect(() => { try { if (window.lucide) window.lucide.createIcons(); } catch(e) {} }, [name]);
+        return <i data-lucide={name} className={className} style={{ width: size, height: size, color: color, display: 'inline-block' }}></i>;
     }
 
     function App() {
         const [user, setUser] = useState(null);
-        const [view, setView] = useState('loading'); // loading, auth, dashboard, intake, pipeline, report
-        const [jobId, setJobId] = useState('');
-        const [rep, setRep] = useState(null);
-        const [err, setErr] = useState('');
+        const [view, setView] = useState('loading'); // auth, dashboard, intake, pipeline, report
+        const [ctx, setCtx] = useState({}); // Stores jobId, report, etc.
+        const [error, setError] = useState('');
 
         useEffect(() => {
-            const token = localStorage.getItem('inkognito_token');
-            if (token) api.user().then(u => { setUser(u); setView('dashboard'); }).catch(() => { localStorage.removeItem('inkognito_token'); setView('auth'); });
-            else setView('auth');
+            if (localStorage.getItem('inkognito_token')) {
+                API.req('/user').then(u => { setUser(u); setView('dashboard'); }).catch(() => setView('auth'));
+            } else setView('auth');
         }, []);
 
-        if (view === 'loading') return <div style={{padding:'100px', textAlign:'center'}}><Icon name="loader-2" className="spin" size={48} /></div>;
+        const logout = () => { localStorage.removeItem('inkognito_token'); setUser(null); setView('auth'); };
+
+        if (view === 'loading') return <div className="app-container" style={{display:'flex',justifyContent:'center',paddingTop:'100px'}}><Icon name="loader-2" className="spin" size={48} color="var(--accent-gold)" /></div>;
 
         return (
-            <div className="app-container">
-                <header style={{ marginBottom:'48px', borderBottom:'1px solid var(--border-subtle)', paddingBottom:'24px' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-                        <div onClick={() => user && setView('dashboard')} style={{ cursor:'pointer' }}>
-                            <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-                                <Icon name="shield-check" color="var(--accent-gold)" size={24} />
-                                <h1 className="serif-heading" style={{ fontSize:'1.8rem', color:'var(--accent-gold)' }}>INKOGNITO</h1>
-                            </div>
-                            <p style={{ fontSize:'0.7rem', color:'var(--accent-gold)', fontWeight:600, marginTop:'4px' }}>PUBLIC RECORDS DATA AGGREGATION SERVICE</p>
+            <div className="app-container fade-in">
+                <header style={{ marginBottom:'60px', borderBottom:'1px solid var(--border-subtle)', paddingBottom:'24px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                    <div onClick={() => user && setView('dashboard')} style={{ cursor:'pointer' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                            <Icon name="shield-check" color="var(--accent-gold)" size={24} />
+                            <h1 className="serif-heading" style={{ fontSize:'1.8rem', color:'var(--accent-gold)', letterSpacing:'0.05em' }}>INKOGNITO v2</h1>
                         </div>
-                        {user && <div style={{ display:'flex', gap:'20px', alignItems:'center' }}>
-                            <span style={{ fontSize:'0.8rem', opacity:0.6 }}>LOGGED IN AS <b>{user.username}</b></span>
-                            <button className="btn btn-outline" style={{padding:'6px 12px', fontSize:'0.75rem'}} onClick={() => { localStorage.removeItem('inkognito_token'); setUser(null); setView('auth'); }}>LOGOUT</button>
-                        </div>}
+                        <p style={{ fontSize:'0.65rem', color:'var(--accent-gold)', fontWeight:600, marginTop:'4px', letterSpacing:'0.15em' }}>PREMIUM PUBLIC RECORDS VERIFICATION</p>
                     </div>
+                    {user && (
+                        <div style={{ display:'flex', alignItems:'center', gap:'20px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'var(--bg-panel)', padding:'8px 16px', borderRadius:'10px', border:'1px solid var(--border-subtle)' }}>
+                                <Icon name="user" size={14} color="var(--accent-gold)" />
+                                <span style={{ fontSize:'0.8rem', fontWeight:600 }}>{user.username.toUpperCase()}</span>
+                            </div>
+                            <button className="btn btn-outline" style={{ padding:'8px 16px', fontSize:'0.75rem', color:'var(--accent-crimson)' }} onClick={logout}>LOGOUT</button>
+                        </div>
+                    )}
                 </header>
 
                 <main>
-                    {view === 'auth' && <Auth onLogin={u => { setUser(u); setView('dashboard'); }} />}
-                    
-                    {view === 'dashboard' && <Dashboard 
-                        onNew={() => setView('intake')} 
-                        onViewReport={r => api.status(`report-${r.report_id}`).then(d => { setRep(d.report); setView('report'); })} 
-                    />}
-
-                    {view === 'intake' && <div className="fade-in">
-                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'32px' }}>
-                            <h2 className="serif-heading" style={{fontSize:'2rem'}}>New Verification</h2>
-                            <button className="btn btn-outline" onClick={() => setView('dashboard')}>Cancel</button>
-                        </div>
-                        <div className="panel">
-                            <form onSubmit={e => {
-                                e.preventDefault(); setErr('');
-                                const f = { name: e.target.name.value, phone: e.target.phone.value, city: e.target.city.value };
-                                api.run(f).then(d => { setJobId(d.job_id); setView('pipeline'); }).catch(e => setErr(e.message));
-                            }}>
-                                <div style={{ display:'grid', gap:'20px' }}>
-                                    <div><label className="input-label">Full Name</label><input name="name" required /></div>
-                                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px' }}>
-                                        <div><label className="input-label">Phone</label><input name="phone" required /></div>
-                                        <div><label className="input-label">City</label><input name="city" required /></div>
-                                    </div>
-                                    {err && <div style={{color:'var(--accent-crimson)'}}>{err}</div>}
-                                    <button className="btn btn-primary" style={{width:'100%', padding:'16px'}}>Run Intelligence Pipeline</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>}
-
-                    {view === 'pipeline' && <div style={{textAlign:'center', padding:'60px'}}>
-                        <Icon name="loader-2" className="spin" size={48} color="var(--accent-gold)" />
-                        <h2 className="serif-heading" style={{marginTop:'24px'}}>PIPELINE ACTIVE</h2>
-                        <div style={{fontSize:'0.8rem', marginTop:'10px', opacity:0.5}}>{jobId}</div>
-                        <PipelineStatus jobId={jobId} onComplete={d => { setRep(d.report); setView('report'); }} />
-                    </div>}
-
-                    {view === 'report' && <div className="fade-in">
-                        <div style={{display:'flex', justifyContent:'space-between', marginBottom:'32px'}}>
-                            <h1 className="serif-heading" style={{fontSize:'2.5rem'}}>{rep?.subject?.full_name || rep?.subject_name}</h1>
-                            <button className="btn btn-outline" onClick={() => setView('dashboard')}>Close</button>
-                        </div>
-                        {Object.entries(rep?.modules_run || {}).map(([n, m]) => m.ran && (
-                            <div key={n} className="panel" style={{marginBottom:'20px'}}>
-                                <h4 style={{color:'var(--accent-gold)', marginBottom:'12px'}}>{n}</h4>
-                                {m.findings?.length > 0 ? m.findings.map((f, i) => (
-                                    <div key={i} style={{padding:'12px', background:'var(--bg-input)', borderRadius:'8px', marginTop:'10px'}}>
-                                        <div style={{fontWeight:600}}>{f.title}</div>
-                                        <div style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>{f.detail}</div>
-                                    </div>
-                                )) : <div style={{fontSize:'0.85rem', opacity:0.6}}>No records found.</div>}
-                            </div>
-                        ))}
-                    </div>}
+                    {view === 'auth' && <AuthView onLogin={u => { setUser(u); setView('dashboard'); }} />}
+                    {view === 'dashboard' && <DashboardView onNew={() => setView('intake')} onViewReport={r => {
+                         API.req(`/jobs/report-${r.report_id}`).then(d => { setCtx({report: d.report}); setView('report'); });
+                    }} />}
+                    {view === 'intake' && <IntakeView onBack={() => setView('dashboard')} onSubmit={f => {
+                         API.req('/run', { method:'POST', body:JSON.stringify(f) }).then(d => { setCtx({jobId: d.job_id, subject: f}); setView('pipeline'); }).catch(e => setError(e.message));
+                    }} error={error} />}
+                    {view === 'pipeline' && <PipelineView jobId={ctx.jobId} subject={ctx.subject} onComplete={rep => { setCtx({report: rep}); setView('report'); }} />}
+                    {view === 'report' && <ReportView report={ctx.report} onBack={() => setView('dashboard')} />}
                 </main>
             </div>
         );
     }
 
-    function Auth({ onLogin }) {
+    // --- Views ---
+
+    function AuthView({ onLogin }) {
+        const [isReg, setIsReg] = useState(false);
         const [u, setU] = useState('');
         const [p, setP] = useState('');
         const [err, setErr] = useState('');
-        return <div style={{display:'flex', justifyContent:'center', paddingTop:'60px'}}><div className="panel" style={{width:'100%', maxWidth:'400px'}}>
-            <h2 className="serif-heading" style={{textAlign:'center', marginBottom:'32px'}}>Authentication</h2>
-            {err && <div style={{color:'var(--accent-crimson)', marginBottom:'20px', textAlign:'center'}}>{err}</div>}
-            <form onSubmit={e => { e.preventDefault(); api.login(u, p).then(d => { localStorage.setItem('inkognito_token', d.token); api.user().then(onLogin); }).catch(e => setErr(e.message)); }}>
-                <div style={{marginBottom:'16px'}}><label className="input-label">Username</label><input value={u} onChange={e => setU(e.target.value)} required /></div>
-                <div style={{marginBottom:'24px'}}><label className="input-label">Password</label><input type="password" value={p} onChange={e => setP(e.target.value)} required /></div>
-                <button className="btn btn-primary" style={{width:'100%'}}>LOG IN</button>
-            </form>
-        </div></div>;
-    }
 
-    function Dashboard({ onNew, onViewReport }) {
-        const [reps, setReps] = useState([]);
-        const [load, setLoad] = useState(true);
-        useEffect(() => { api.reports().then(setReps).finally(() => setLoad(false)); }, []);
-        return <div className="fade-in">
-            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'40px'}}>
-                <h2 className="serif-heading" style={{fontSize:'2rem'}}>Records</h2>
-                <button className="btn btn-primary" onClick={onNew}><Icon name="plus" /> New</button>
+        const sub = (e) => {
+            e.preventDefault(); setErr('');
+            const path = isReg ? '/register' : '/login';
+            API.req(path, { method:'POST', body:JSON.stringify({username:u, password:p}) })
+               .then(d => { if (isReg) { setIsReg(false); alert('Registration successful!'); } else { localStorage.setItem('inkognito_token', d.token); onLogin(d.user); } })
+               .catch(e => setErr(e.message));
+        };
+
+        return (
+            <div style={{ display:'flex', justifyContent:'center', paddingTop:'40px' }}>
+                <div className="panel glass" style={{ width:'100%', maxWidth:'400px', textAlign:'center' }}>
+                    <h2 className="serif-heading" style={{ marginBottom:'32px', fontSize:'2rem' }}>{isReg ? 'Create Identity' : 'Secure Access'}</h2>
+                    {err && <div style={{ color:'var(--accent-crimson)', marginBottom:'20px', fontSize:'0.9rem' }}>{err}</div>}
+                    <form onSubmit={sub}>
+                        <div style={{ marginBottom:'16px', textAlign:'left' }}>
+                            <label className="input-label">Username</label>
+                            <input value={u} onChange={e => setU(e.target.value)} required />
+                        </div>
+                        <div style={{ marginBottom:'32px', textAlign:'left' }}>
+                            <label className="input-label">Secret Key</label>
+                            <input type="password" value={p} onChange={e => setP(e.target.value)} required />
+                        </div>
+                        <button className="btn btn-primary" style={{ width:'100%' }}>{isReg ? 'REGISTER' : 'INITIALIZE SESSION'}</button>
+                    </form>
+                    <button onClick={() => setIsReg(!isReg)} style={{ background:'none', border:'none', color:'var(--text-muted)', marginTop:'24px', cursor:'pointer', fontSize:'0.85rem' }}>
+                        {isReg ? 'Already registered? Log in here' : 'Request new credentials'}
+                    </button>
+                </div>
             </div>
-            {load ? <div style={{textAlign:'center'}}><Icon name="loader-2" className="spin" /></div> :
-             reps.length === 0 ? <div className="panel" style={{textAlign:'center'}}>No reports.</div> :
-             <div style={{display:'grid', gap:'12px'}}>
-                {reps.map(r => (
-                    <div key={r.report_id} className="panel" onClick={() => onViewReport(r)} style={{cursor:'pointer', display:'flex', justifyContent:'space-between'}}>
-                        <span>{r.subject_name}</span>
-                        <Icon name="chevron-right" />
-                    </div>
-                ))}
-            </div>}
-        </div>;
+        );
     }
 
-    function PipelineStatus({ jobId, onComplete }) {
+    function DashboardView({ onNew, onViewReport }) {
+        const [reps, setReps] = useState([]);
+        const [ld, setLd] = useState(true);
+
+        useEffect(() => { API.req('/reports').then(setReps).finally(() => setLd(false)); }, []);
+
+        return (
+            <div className="fade-in">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'40px' }}>
+                    <h2 className="serif-heading" style={{ fontSize:'2.2rem' }}>Archival Hub</h2>
+                    <button className="btn btn-primary" onClick={onNew}><Icon name="plus" /> NEW VERIFICATION</button>
+                </div>
+                {ld ? <div style={{ textAlign:'center' }}><Icon name="loader-2" className="spin" /></div> :
+                 reps.length === 0 ? <div className="panel" style={{ textAlign:'center', padding:'60px', opacity:0.6 }}>No historical records found in this vault.</div> :
+                 <div style={{ display:'grid', gap:'12px' }}>
+                    {reps.map(r => (
+                        <div key={r.report_id} className="panel" onClick={() => onViewReport(r)} style={{ cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 32px' }}>
+                            <div style={{ display:'flex', gap:'20px', alignItems:'center' }}>
+                                <div style={{ background:'var(--bg-input)', padding:'10px', borderRadius:'10px' }}><Icon name="file-text" color="var(--accent-gold)" /></div>
+                                <div>
+                                    <div style={{ fontWeight:600, fontSize:'1.1rem' }}>{r.subject_name}</div>
+                                    <div style={{ fontSize:'0.75rem', color:'var(--text-muted)', textTransform:'uppercase', marginTop:'2px' }}>Verified on {r.generated_at.split(' ')[0]}</div>
+                                </div>
+                            </div>
+                            <Icon name="chevron-right" color="var(--text-muted)" />
+                        </div>
+                    ))}
+                 </div>
+                }
+            </div>
+        );
+    }
+
+    function IntakeView({ onBack, onSubmit, error }) {
+        const [f, setF] = useState({ name:'', phone:'', city:'' });
+        return (
+            <div className="fade-in">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'40px' }}>
+                    <h2 className="serif-heading" style={{ fontSize:'2.2rem' }}>Subject Intake</h2>
+                    <button className="btn btn-outline" onClick={onBack}>CANCEL</button>
+                </div>
+                <div className="panel">
+                    <form onSubmit={e => { e.preventDefault(); onSubmit(f); }}>
+                        <div style={{ display:'grid', gap:'24px' }}>
+                            <div><label className="input-label">Identified Full Name</label><input value={f.name} onChange={e => setF({...f, name:e.target.value})} required placeholder="e.g. Rajesh Kumar" /></div>
+                            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px' }}>
+                                <div><label className="input-label">Primary Mobile</label><input value={f.phone} onChange={e => setF({...f, phone:e.target.value})} required placeholder="+91 XXXX XXXX" /></div>
+                                <div><label className="input-label">Target City</label><input value={f.city} onChange={e => setF({...f, city:e.target.value})} required placeholder="e.g. Delhi" /></div>
+                            </div>
+                            {error && <div style={{ color:'var(--accent-crimson)', fontSize:'0.9rem' }}>{error}</div>}
+                            <button className="btn btn-primary" style={{ width:'100%', padding:'18px', marginTop:'10px' }}>INITIATE INTELLIGENCE PIPELINE</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    function PipelineView({ jobId, subject, onComplete }) {
         const [job, setJob] = useState(null);
         useEffect(() => {
-            const p = () => api.status(jobId).then(d => { setJob(d); if (d.status==='completed') onComplete(d); });
-            p(); const i = setInterval(p, 2500); return () => clearInterval(i);
+            const tk = setInterval(() => {
+                API.req(`/jobs/${jobId}`).then(d => { setJob(d); if (d.status === 'completed') { clearInterval(tk); onComplete(d.report); } });
+            }, 2500);
+            return () => clearInterval(tk);
         }, [jobId]);
-        if (!job) return null;
-        return <div style={{marginTop:'20px', display:'grid', gap:'8px', maxWidth:'400px', margin:'20px auto'}}>
-            {job.modules.map(m => <div key={m.name} style={{fontSize:'0.8rem', opacity: m.status==='queued' ? 0.3 : 1}}>{m.name}: {m.status}</div>)}
-        </div>;
+
+        return (
+            <div className="fade-in" style={{ textAlign:'center', paddingTop:'40px' }}>
+                <div style={{ marginBottom:'40px' }}>
+                    <Icon name="loader-2" className="spin" size={64} color="var(--accent-gold)" />
+                    <h2 className="serif-heading" style={{ marginTop:'24px', fontSize:'2.5rem' }}>EXECUTING PIPELINE</h2>
+                    <p style={{ color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.2em', fontSize:'0.8rem', marginTop:'8px' }}>Scanning Global Public Records for {subject.name}</p>
+                </div>
+                <div style={{ maxWidth:'500px', margin:'0 auto', textAlign:'left' }}>
+                    {job?.modules?.map(m => (
+                        <div key={m.name} className="panel" style={{ marginBottom:'12px', padding:'16px 24px', display:'flex', justifyContent:'space-between', opacity: m.status === 'queued' ? 0.3 : 1 }}>
+                            <div style={{ display:'flex', gap:'12px', alignItems:'center' }}>
+                                {m.status === 'running' ? <Icon name="loader-2" className="spin" size={16} /> : <Icon name="check" color="var(--accent-green)" size={16} />}
+                                <span>{m.name} Module</span>
+                            </div>
+                            <span style={{ fontSize:'0.75rem', fontWeight:600 }}>{m.status.toUpperCase()}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    function ReportView({ report, onBack }) {
+        if (!report) return null;
+        return (
+            <div className="fade-in">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'48px' }}>
+                    <div>
+                        <h1 className="serif-heading" style={{ fontSize:'3rem' }}>{report.subject_name}</h1>
+                        <p style={{ color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.1em' }}>Intelligence Report Summary</p>
+                    </div>
+                    <button className="btn btn-outline" onClick={onBack}><Icon name="chevron-left" /> BACK TO DASHBOARD</button>
+                </div>
+                {Object.entries(report.modules_run || {}).map(([name, m]) => m.ran && (
+                    <div key={name} className="panel" style={{ marginBottom:'24px' }}>
+                        <h4 style={{ color:'var(--accent-gold)', marginBottom:'16px', display:'flex', alignItems:'center', gap:'10px' }}>
+                            <Icon name="database" size={16} /> {name.toUpperCase()} FINDINGS
+                        </h4>
+                        {m.findings?.length > 0 ? m.findings.map((f, i) => (
+                            <div key={i} style={{ padding:'20px', background:'var(--bg-input)', borderRadius:'12px', marginTop:'16px', borderLeft:'4px solid var(--accent-gold)' }}>
+                                <div style={{ fontWeight:700, fontSize:'1.1rem' }}>{f.title}</div>
+                                <div style={{ fontSize:'0.9rem', color:'var(--text-secondary)', marginTop:'6px', lineHeight:1.6 }}>{f.detail}</div>
+                            </div>
+                        )) : <div style={{ padding:'20px', fontSize:'0.9rem', color:'var(--text-muted)' }}>No adverse or statutory records discovered in this module.</div>}
+                    </div>
+                ))}
+            </div>
+        );
     }
 
     const r = ReactDOM.createRoot(document.getElementById('root'));
