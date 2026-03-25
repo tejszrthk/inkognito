@@ -5,7 +5,7 @@ __pycache__/
 .DS_Store
 *.log
 node_modules/
-# dist/ (removed so backend can find the built frontend)
+dist/
 build/
 .next/
 .vscode/
