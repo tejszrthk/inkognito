@@ -3,211 +3,284 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inkognito — System Diagnostic</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Outfit:wght@600&display=swap" rel="stylesheet">
+  <title>Inkognito — Premium Verification Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-</head>
-<body style="background:#0a0b0d; color:#fff; font-family:sans-serif;">
-  <div id="diagnostic-overlay" style="position:fixed; top:20px; left:20px; z-index:9999; font-size:12px; color:#d4af37; opacity:0.8;">
-    [SYSTEM CHECK] <span id="diag-status">Initializing...</span>
-  </div>
-
-  <div id="root">
-     <div style="display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column; gap:20px;">
-        <div style="width:40px; height:40px; border:3px solid #d4af37; border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;"></div>
-        <div style="color:#d4af37; font-weight:600; letter-spacing:2px;">INKOGNITO BOOTING...</div>
-        <div id="error-fallback" style="color:#ff4444; font-size:14px; display:none; max-width:80%; text-align:center;"></div>
-     </div>
-  </div>
-
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .glass-effect { background: rgba(20, 22, 26, 0.8); backdrop-filter: blur(20px); border: 1px solid var(--border-subtle); }
+    .gold-glow { box-shadow: 0 0 20px rgba(212, 175, 55, 0.15); }
   </style>
+</head>
+<body>
+  <div id="root"></div>
 
-  <script>
-    window.onerror = function(m, u, l) {
-        document.getElementById('diag-status').innerText = 'ERROR: ' + m;
-        const fallback = document.getElementById('error-fallback');
-        fallback.style.display = 'block';
-        fallback.innerText = '⚠️ Javascript Error: ' + m + ' at line ' + l;
-    };
-    function checkReady() {
-        if (window.React && window.ReactDOM && window.Babel) {
-            document.getElementById('diag-status').innerText = 'Dependencies Ready. Rendering App...';
-        } else {
-            document.getElementById('diag-status').innerText = 'Waiting for dependencies...';
-        }
-    }
-    setTimeout(checkReady, 2000);
-  </script>
-
-  <!-- Core Dependencies -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-  <script src="https://unpkg.com/lucide@latest" crossorigin></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // --- API Service ---
-    const api = {
+    const API = {
         h: () => ({ 'Authorization': `Bearer ${localStorage.getItem('inkognito_token') || ''}`, 'Content-Type': 'application/json' }),
-        req: (p, o = {}) => fetch(`/api${p}`, { ...o, headers: { ...api.h(), ...o.headers } }).then(r => r.json().then(d => r.ok ? d : Promise.reject(d.err || 'Err'))),
+        req: async (path, opt = {}) => {
+            const r = await fetch(`/api${path}`, { ...opt, headers: { ...API.h(), ...opt.headers } });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.err || 'Request failed');
+            return d;
+        }
     };
 
     function Icon({ name, size = 18, color = "currentColor", className = "" }) {
         useEffect(() => { try { if (window.lucide) window.lucide.createIcons(); } catch(e) {} }, [name]);
-        return <i data-lucide={name} className={className} style={{ width: size, height: size, color: color, display: 'inline-block' }}></i>;
+        return <i data-lucide={name} className={className} style={{ width: size, height: size, color: color, display:'inline-block' }}></i>;
     }
 
     function App() {
         const [user, setUser] = useState(null);
         const [view, setView] = useState('loading');
-        const [jobId, setJobId] = useState('');
-        const [rep, setRep] = useState(null);
+        const [ctx, setCtx] = useState({});
         const [err, setErr] = useState('');
 
         useEffect(() => {
-            const token = localStorage.getItem('inkognito_token');
-            if (token) api.req('/user').then(u => { setUser(u); setView('dashboard'); }).catch(() => setView('auth'));
-            else setView('auth');
-            document.getElementById('diagnostic-overlay').style.display = 'none';
+            if (localStorage.getItem('inkognito_token')) {
+                API.req('/user').then(u => { setUser(u); setView('dashboard'); }).catch(() => setView('auth'));
+            } else setView('auth');
         }, []);
 
         const logout = () => { localStorage.removeItem('inkognito_token'); setUser(null); setView('auth'); };
 
-        if (view === 'loading') return null; // Root fallback handles start loader
+        if (view === 'loading') return <div className="app-container" style={{display:'flex',justifyContent:'center',paddingTop:'100px'}}><Icon name="loader-2" className="spin" size={48} color="var(--accent-gold)" /></div>;
 
         return (
             <div className="app-container fade-in">
-                <header style={{ marginBottom:'48px', borderBottom:'1px solid var(--border-subtle)', paddingBottom:'24px', display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                <header style={{ marginBottom:'60px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <div onClick={() => user && setView('dashboard')} style={{ cursor:'pointer' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-                            <Icon name="shield-check" color="var(--accent-gold)" size={24} />
-                            <h1 className="serif-heading" style={{ fontSize:'1.8rem', color:'var(--accent-gold)', margin:0 }}>INKOGNITO v2</h1>
+                            <Icon name="shield-check" color="var(--accent-gold)" size={28} />
+                            <h1 className="serif-heading" style={{ fontSize:'2rem', color:'var(--accent-gold)', letterSpacing:'0.02em' }}>INKOGNITO</h1>
                         </div>
-                        <p style={{ fontSize:'0.7rem', color:'var(--accent-gold)', fontWeight:600, marginTop:'4px', letterSpacing:'0.15em', margin:0 }}>PREMIUM PUBLIC RECORDS VERIFICATION</p>
+                        <p style={{ fontSize:'0.65rem', color:'var(--text-muted)', fontWeight:600, marginTop:0, letterSpacing:'0.2em' }}>PREMIUM PUBLIC RECORDS SERVICE</p>
                     </div>
                     {user && (
-                        <div style={{ display:'flex', alignItems:'center', gap:'20px' }}>
-                            <div style={{ display:'flex', alignItems:'center', gap:'8px', background:'var(--bg-panel)', padding:'8px 16px', borderRadius:'10px', border:'1px solid var(--border-subtle)' }}>
-                                <Icon name="user" size={14} color="var(--accent-gold)" />
-                                <span style={{ fontSize:'0.8rem', fontWeight:600 }}>{user.username.toUpperCase()}</span>
+                        <div style={{ display:'flex', alignItems:'center', gap:'24px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:'12px', background:'var(--bg-panel)', padding:'10px 20px', borderRadius:'12px', border:'1px solid var(--border-subtle)' }}>
+                                <Icon name="user" size={16} color="var(--accent-gold)" />
+                                <span style={{ fontSize:'0.9rem', fontWeight:600 }}>{user.username.toUpperCase()}</span>
                             </div>
-                            <button className="btn btn-outline" style={{ padding:'8px 16px', fontSize:'0.75rem' }} onClick={logout}>LOGOUT</button>
+                            <button className="btn btn-outline" style={{ padding:'10px 20px', fontSize:'0.8rem', opacity:0.6 }} onClick={logout}>LOGOUT</button>
                         </div>
                     )}
                 </header>
 
                 <main>
-                    {view === 'auth' && (
-                        <div style={{ display:'flex', justifyContent:'center', paddingTop:'40px' }}>
-                            <div className="panel" style={{ width:'100%', maxWidth:'400px', textAlign:'center' }}>
-                                <h2 className="serif-heading" style={{ marginBottom:'32px' }}>Authentication</h2>
-                                <form onSubmit={e => { e.preventDefault(); api.req('/login', { method:'POST', body:JSON.stringify({username:e.target.u.value, password:e.target.p.value}) }).then(d => { localStorage.setItem('inkognito_token', d.token); setUser(d.user); setView('dashboard'); }).catch(e => setErr(e)); }}>
-                                    <div style={{ marginBottom:'16px', textAlign:'left' }}><label className="input-label">Username</label><input name="u" required /></div>
-                                    <div style={{ marginBottom:'24px', textAlign:'left' }}><label className="input-label">Password</label><input name="p" type="password" required /></div>
-                                    <button className="btn btn-primary" style={{ width:'100%' }}>LOG IN</button>
-                                </form>
-                                {err && <div style={{ color:'#ff4444', marginTop:'20px' }}>{err}</div>}
-                            </div>
-                        </div>
-                    )}
-
-                    {view === 'dashboard' && (
-                        <div className="fade-in">
-                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'40px' }}>
-                                <h2 className="serif-heading" style={{ fontSize:'2rem' }}>Archival Hub</h2>
-                                <button className="btn btn-primary" onClick={() => setView('intake')}><Icon name="plus" /> NEW</button>
-                            </div>
-                            <DashboardList onSelect={r => api.req(`/jobs/report-${r.report_id}`).then(d => { setRep(d.report); setView('report'); })} />
-                        </div>
-                    )}
-
-                    {view === 'intake' && (
-                        <div className="fade-in">
-                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'32px' }}>
-                                <h2 className="serif-heading">New Verification</h2>
-                                <button className="btn btn-outline" onClick={() => setView('dashboard')}>CANCEL</button>
-                            </div>
-                            <div className="panel">
-                                <form onSubmit={e => { e.preventDefault(); api.req('/run', { method:'POST', body:JSON.stringify({name:e.target.name.value, phone:e.target.phone.value, city:e.target.city.value}) }).then(d => { setJobId(d.job_id); setView('pipeline'); }).catch(e => setErr(e)); }}>
-                                    <div style={{ display:'grid', gap:'20px' }}>
-                                        <div><label className="input-label">Full Name</label><input name="name" required /></div>
-                                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px' }}>
-                                            <div><label className="input-label">Phone</label><input name="phone" required /></div>
-                                            <div><label className="input-label">City</label><input name="city" required /></div>
-                                        </div>
-                                        <button className="btn btn-primary" style={{ padding:'18px' }}>START PIPELINE</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
-
-                    {view === 'pipeline' && <PipelineTracker jobId={jobId} onComplete={r => { setRep(r); setView('report'); }} />}
-                    
-                    {view === 'report' && (
-                        <div className="fade-in">
-                            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'40px' }}>
-                                <h1 className="serif-heading">{rep.subject_name}</h1>
-                                <button className="btn btn-outline" onClick={() => setView('dashboard')}>CLOSE</button>
-                            </div>
-                            {Object.entries(rep.modules_run || {}).map(([k, m]) => m.ran && (
-                                <div key={k} className="panel" style={{ marginBottom:'20px' }}>
-                                    <h4 style={{ color:'var(--accent-gold)' }}>{k.toUpperCase()}</h4>
-                                    {m.findings?.map((f, i) => (
-                                        <div key={i} style={{ padding:'12px', background:'var(--bg-input)', marginTop:'10px', borderRadius:'8px' }}>
-                                            <b>{f.title}</b>: {f.detail}
-                                        </div>
-                                    ))}
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    {view === 'auth' && <AuthView onLogin={u => { setUser(u); setView('dashboard'); }} />}
+                    {view === 'dashboard' && <DashboardView onNew={() => setView('intake')} onViewReport={r => {
+                         setView('loading');
+                         API.req(`/jobs/report-${r.report_id}`).then(d => { setCtx({report: d.report}); setView('report'); });
+                    }} />}
+                    {view === 'intake' && <IntakeView onBack={() => setView('dashboard')} onSubmit={f => {
+                         setView('loading');
+                         API.req('/run', { method:'POST', body:JSON.stringify(f) }).then(d => { setCtx({jobId: d.job_id, subject: f}); setView('pipeline'); }).catch(e => { setErr(e.message); setView('intake'); });
+                    }} error={err} />}
+                    {view === 'pipeline' && <PipelineView jobId={ctx.jobId} subject={ctx.subject} onComplete={rep => { setCtx({report: rep}); setView('report'); }} />}
+                    {view === 'report' && <ReportView report={ctx.report} onBack={() => setView('dashboard')} />}
                 </main>
             </div>
         );
     }
 
-    function DashboardList({ onSelect }) {
-        const [reps, setReps] = useState([]);
-        useEffect(() => { api.req('/reports').then(setReps); }, []);
+    function AuthView({ onLogin }) {
+        const [isReg, setIsReg] = useState(false);
+        const [u, setU] = useState('');
+        const [p, setP] = useState('');
+        const [err, setErr] = useState('');
+        const [loading, setLoading] = useState(false);
+
+        const sub = (e) => {
+            e.preventDefault(); setErr(''); setLoading(true);
+            const path = isReg ? '/register' : '/login';
+            API.req(path, { method:'POST', body:JSON.stringify({username:u, password:p}) })
+               .then(d => { if (isReg) { setIsReg(false); alert('Registration complete. Authenticating...'); } else { localStorage.setItem('inkognito_token', d.token); onLogin(d.user); } })
+               .catch(e => setErr(e.message)).finally(() => setLoading(false));
+        };
+
         return (
-            <div style={{ display:'grid', gap:'10px' }}>
-                {reps.length === 0 ? <div className="panel" style={{ textAlign:'center' }}>No reports yet.</div> :
-                 reps.map(r => (
-                    <div key={r.report_id} className="panel" style={{ cursor:'pointer', display:'flex', justifyContent:'space-between' }} onClick={() => onSelect(r)}>
-                        <span>{r.subject_name}</span>
-                        <Icon name="chevron-right" />
+            <div style={{ display:'flex', justifyContent:'center', paddingTop:'40px' }}>
+                <div className="auth-card" style={{ width:'100%', maxWidth:'440px', textAlign:'center' }}>
+                    <h2 className="serif-heading" style={{ marginBottom:'40px', fontSize:'2.2rem' }}>{isReg ? 'New Identity' : 'Secure Vault'}</h2>
+                    {err && <div style={{ color:'var(--accent-crimson)', background:'rgba(200, 42, 42, 0.1)', padding:'12px', borderRadius:'8px', marginBottom:'24px', fontSize:'0.9rem' }}>{err}</div>}
+                    <form onSubmit={sub}>
+                        <div style={{ marginBottom:'20px', textAlign:'left' }}>
+                            <label className="input-label">Identified User</label>
+                            <input type="text" value={u} onChange={e => setU(e.target.value)} required placeholder="Enter username" />
+                        </div>
+                        <div style={{ marginBottom:'40px', textAlign:'left' }}>
+                            <label className="input-label">Passphrase</label>
+                            <input type="password" value={p} onChange={e => setP(e.target.value)} required placeholder="••••••••" />
+                        </div>
+                        <button className="btn btn-primary" style={{ width:'100%', padding:'18px' }} disabled={loading}>
+                            {loading ? <Icon name="loader-2" className="spin" /> : (isReg ? 'REGISTER ACCOUNT' : 'INITIALIZE SESSION')}
+                        </button>
+                    </form>
+                    <div style={{ marginTop:'32px', paddingTop:'24px', borderTop:'1px solid var(--border-subtle)' }}>
+                        <button onClick={() => setIsReg(!isReg)} style={{ background:'none', border:'none', color:'var(--text-muted)', cursor:'pointer', fontSize:'0.9rem', fontWeight:500 }}>
+                            {isReg ? 'Already a member? Sign in instead' : 'Need access? Register here'}
+                        </button>
                     </div>
-                 ))
+                </div>
+            </div>
+        );
+    }
+
+    function DashboardView({ onNew, onViewReport }) {
+        const [reps, setReps] = useState([]);
+        const [ld, setLd] = useState(true);
+
+        useEffect(() => { API.req('/reports').then(setReps).finally(() => setLd(false)); }, []);
+
+        return (
+            <div className="fade-in">
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'20px', marginBottom:'48px' }}>
+                    <div className="stat-card">
+                        <span className="input-label" style={{marginBottom:0}}>Vault Status</span>
+                        <div className="stat-value">OPERATIONAL</div>
+                    </div>
+                    <div className="stat-card">
+                        <span className="input-label" style={{marginBottom:0}}>Total Dossiers</span>
+                        <div className="stat-value">{reps.length}</div>
+                    </div>
+                    <div className="stat-card" style={{ borderColor:'var(--border-gold)', background:'var(--accent-gold-soft)', cursor:'pointer' }} onClick={onNew}>
+                        <span className="input-label" style={{color:'var(--accent-gold)', marginBottom:0}}>Create New</span>
+                        <div className="stat-value" style={{display:'flex', alignItems:'center', gap:'10px'}}>INITIATE <Icon name="arrow-right" size={20} /></div>
+                    </div>
+                </div>
+
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'32px' }}>
+                    <h2 className="serif-heading" style={{ fontSize:'1.8rem' }}>Verification Archive</h2>
+                </div>
+
+                {ld ? <div style={{ textAlign:'center', padding:'60px' }}><Icon name="loader-2" className="spin" size={32} color="var(--accent-gold)" /></div> :
+                 reps.length === 0 ? <div className="panel" style={{ textAlign:'center', padding:'80px', opacity:0.5 }}>The archive is current empty.</div> :
+                 <div style={{ display:'grid', gap:'16px' }}>
+                    {reps.map(r => (
+                        <div key={r.report_id} className="panel glass" onClick={() => onViewReport(r)} style={{ cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', padding:'24px 32px' }}>
+                            <div style={{ display:'flex', gap:'24px', alignItems:'center' }}>
+                                <div style={{ background:'var(--bg-input)', padding:'14px', borderRadius:'14px', border:'1px solid var(--border-subtle)' }}><Icon name="user" color="var(--accent-gold)" size={24} /></div>
+                                <div>
+                                    <div style={{ fontWeight:700, fontSize:'1.2rem', letterSpacing:'-0.01em' }}>{r.subject_name}</div>
+                                    <div style={{ fontSize:'0.8rem', color:'var(--text-muted)', marginTop:'4px' }}>Archived on {r.generated_at}</div>
+                                </div>
+                            </div>
+                            <div className="badge badge-gold">VIEW DOSSIER</div>
+                        </div>
+                    ))}
+                 </div>
                 }
             </div>
         );
     }
 
-    function PipelineTracker({ jobId, onComplete }) {
+    function IntakeView({ onBack, onSubmit, error }) {
+        const [f, setF] = useState({ name:'', phone:'', city:'' });
+        return (
+            <div className="fade-in">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'48px' }}>
+                    <h2 className="serif-heading" style={{ fontSize:'2.4rem' }}>Subject Intake</h2>
+                    <button className="btn btn-outline" onClick={onBack}>ABORT MISSION</button>
+                </div>
+                <div className="panel" style={{ maxWidth:'800px', margin:'0 auto' }}>
+                    <form onSubmit={e => { e.preventDefault(); onSubmit(f); }}>
+                        <div style={{ display:'grid', gap:'32px' }}>
+                            <div>
+                                <label className="input-label">Full Legal Name</label>
+                                <input type="text" value={f.name} onChange={e => setF({...f, name:e.target.value})} required placeholder="Enter subject name" />
+                            </div>
+                            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'24px' }}>
+                                <div>
+                                    <label className="input-label">Mobile Number</label>
+                                    <input type="tel" value={f.phone} onChange={e => setF({...f, phone:e.target.value})} required placeholder="+91 XXXXX XXXXX" />
+                                </div>
+                                <div>
+                                    <label className="input-label">Primary City</label>
+                                    <input type="text" value={f.city} onChange={e => setF({...f, city:e.target.value})} required placeholder="e.g. Mumbai" />
+                                </div>
+                            </div>
+                            {error && <div style={{ color:'var(--accent-crimson)', fontSize:'0.9rem' }}>{error}</div>}
+                            <button className="btn btn-primary" style={{ width:'100%', padding:'20px', fontSize:'1.1rem' }}>RUN INTELLIGENCE PIPELINE</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    }
+
+    function PipelineView({ jobId, subject, onComplete }) {
         const [job, setJob] = useState(null);
         useEffect(() => {
             const tk = setInterval(() => {
-                api.req(`/jobs/${jobId}`).then(d => { setJob(d); if (d.status === 'completed') { clearInterval(tk); onComplete(d.report); } });
-            }, 3000);
+                API.req(`/jobs/${jobId}`).then(d => { setJob(d); if (d.status === 'completed') { clearInterval(tk); onComplete(d.report); } });
+            }, 2500);
             return () => clearInterval(tk);
         }, [jobId]);
+
         return (
-            <div style={{ textAlign:'center', paddingTop:'40px' }}>
-                <Icon name="loader-2" className="spin" size={48} color="var(--accent-gold)" />
-                <h2 className="serif-heading">Scanning Records...</h2>
-                <div style={{ marginTop:'20px', maxWidth:'400px', margin:'20px auto' }}>
+            <div className="fade-in" style={{ textAlign:'center', paddingTop:'60px' }}>
+                <div style={{ marginBottom:'60px' }}>
+                    <Icon name="loader-2" className="spin" size={72} color="var(--accent-gold)" />
+                    <h2 className="serif-heading" style={{ marginTop:'32px', fontSize:'2.8rem' }}>SEARCHING RECORDS</h2>
+                    <p style={{ color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.3em', fontSize:'0.9rem', marginTop:'12px' }}>CROSS-REFERENCING PUBLIC RECORDS FOR {subject.name}</p>
+                </div>
+                <div style={{ maxWidth:'600px', margin:'0 auto' }}>
                     {job?.modules?.map(m => (
-                        <div key={m.name} style={{ display:'flex', justifyContent:'space-between', opacity: m.status==='queued'?0.4:1 }}>
-                            <span>{m.name}</span>
-                            <span>{m.status}</span>
+                        <div key={m.name} className="panel" style={{ marginBottom:'16px', padding:'20px 32px', display:'flex', justifyContent:'space-between', alignItems:'center', opacity: m.status === 'queued' ? 0.3 : 1 }}>
+                            <div style={{ display:'flex', gap:'16px', alignItems:'center' }}>
+                                {m.status === 'running' ? <Icon name="loader-2" className="spin" size={18} /> : <Icon name="check-circle" color="var(--accent-green)" size={18} />}
+                                <span style={{ fontWeight:600 }}>{m.name} Retrieval</span>
+                            </div>
+                            <div className={`badge ${m.status==='completed' ? 'badge-gold' : ''}`} style={{ fontSize:'0.65rem' }}>{m.status.toUpperCase()}</div>
                         </div>
                     ))}
                 </div>
+            </div>
+        );
+    }
+
+    function ReportView({ report, onBack }) {
+        if (!report) return null;
+        return (
+            <div className="fade-in">
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'60px' }}>
+                    <div>
+                        <div className="badge badge-gold" style={{marginBottom:'16px'}}>Intelligence Dossier</div>
+                        <h1 className="serif-heading" style={{ fontSize:'3.5rem', lineHeight:1 }}>{report.subject_name}</h1>
+                        <p style={{ color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.15em', marginTop:'12px' }}>Aggregated on {report.generated_at}</p>
+                    </div>
+                    <button className="btn btn-outline" style={{padding:'12px 24px'}} onClick={onBack}><Icon name="arrow-left" /> RETURN TO ARCHIVE</button>
+                </div>
+                {Object.entries(report.modules_run || {}).map(([name, m]) => m.ran && (
+                    <div key={name} className="panel glass" style={{ marginBottom:'32px', borderLeft:'6px solid var(--border-gold)' }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
+                            <h3 style={{ textTransform:'uppercase', letterSpacing:'0.1em', fontSize:'1.1rem', color:'var(--accent-gold)', display:'flex', alignItems:'center', gap:'12px' }}>
+                                <Icon name="database" size={18} /> {name} Intelligence
+                            </h3>
+                            <div style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>{m.findings_count} FINDINGS</div>
+                        </div>
+                        {m.findings?.length > 0 ? m.findings.map((f, i) => (
+                            <div key={i} style={{ padding:'24px', background:'rgba(255,255,255,0.03)', borderRadius:'16px', marginTop:'20px', border:'1px solid var(--border-subtle)' }}>
+                                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'8px' }}>
+                                    <div style={{ fontWeight:700, fontSize:'1.2rem', color:'var(--text-primary)' }}>{f.title}</div>
+                                    <div style={{ fontSize:'0.7rem', fontWeight:800, color: f.priority === 'HIGH' ? 'var(--accent-crimson)' : 'var(--accent-gold)' }}>{f.priority}</div>
+                                </div>
+                                <div style={{ fontSize:'0.95rem', color:'var(--text-secondary)', lineHeight:1.7 }}>{f.detail}</div>
+                            </div>
+                        )) : <div style={{ padding:'32px', textAlign:'center', fontSize:'0.9rem', color:'var(--text-muted)', background:'rgba(255,255,255,0.02)', borderRadius:'16px' }}>No adverse or statutory records discovered in the {name} vault.</div>}
+                    </div>
+                ))}
+                <footer style={{ marginTop:'80px', textAlign:'center', padding:'40px', borderTop:'1px solid var(--border-subtle)', color:'var(--text-muted)', fontSize:'0.8rem' }}>
+                    <p>© 2026 INKOGNITO PRIVATE DATA AGGREGATION. FOR AUTHORISED USE ONLY.</p>
+                </footer>
             </div>
         );
     }
