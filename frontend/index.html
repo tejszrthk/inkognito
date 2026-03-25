@@ -22,10 +22,179 @@
   <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <!-- Optional deploy-time API endpoint override -->
-  <script src="deploy-config.js"></script>
+  <!-- App -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
 
-  <!-- Load App -->
-  <script type="text/babel" src="App.jsx"></script>
+    // --- API ---
+    const API_URL = '/api';
+    const authH = () => ({ 'Authorization': 'Bearer ' + (localStorage.getItem('inkognito_token') || '') });
+    const hRes = async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'Network Error');
+        return d;
+    };
+    const api = {
+        login: (u, p) => fetch(`${API_URL}/login`, { method:'POST', body:JSON.stringify({username:u, password:p}) }).then(hRes),
+        user: () => fetch(`${API_URL}/user`, { headers:authH() }).then(hRes),
+        reports: () => fetch(`${API_URL}/reports`, { headers:authH() }).then(hRes),
+        status: (id) => fetch(`${API_URL}/jobs/${id}`, { headers:authH() }).then(hRes),
+        run: (p) => fetch(`${API_URL}/run`, { method:'POST', headers:{...authH(), 'Content-Type':'application/json'}, body:JSON.stringify(p) }).then(hRes)
+    };
+
+    // --- Components ---
+    function Icon({ name, size = 18, color = "currentColor", className = "" }) {
+        useEffect(() => {
+            try { if (window.lucide) window.lucide.createIcons(); } catch(e) {}
+        }, [name]);
+        return <i data-lucide={name} className={className} style={{ width: size, height: size, color: color, display:'inline-block' }}></i>;
+    }
+
+    function App() {
+        const [user, setUser] = useState(null);
+        const [view, setView] = useState('loading'); // loading, auth, dashboard, intake, pipeline, report
+        const [jobId, setJobId] = useState('');
+        const [rep, setRep] = useState(null);
+        const [err, setErr] = useState('');
+
+        useEffect(() => {
+            const token = localStorage.getItem('inkognito_token');
+            if (token) api.user().then(u => { setUser(u); setView('dashboard'); }).catch(() => { localStorage.removeItem('inkognito_token'); setView('auth'); });
+            else setView('auth');
+        }, []);
+
+        if (view === 'loading') return <div style={{padding:'100px', textAlign:'center'}}><Icon name="loader-2" className="spin" size={48} /></div>;
+
+        return (
+            <div className="app-container">
+                <header style={{ marginBottom:'48px', borderBottom:'1px solid var(--border-subtle)', paddingBottom:'24px' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                        <div onClick={() => user && setView('dashboard')} style={{ cursor:'pointer' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+                                <Icon name="shield-check" color="var(--accent-gold)" size={24} />
+                                <h1 className="serif-heading" style={{ fontSize:'1.8rem', color:'var(--accent-gold)' }}>INKOGNITO</h1>
+                            </div>
+                            <p style={{ fontSize:'0.7rem', color:'var(--accent-gold)', fontWeight:600, marginTop:'4px' }}>PUBLIC RECORDS DATA AGGREGATION SERVICE</p>
+                        </div>
+                        {user && <div style={{ display:'flex', gap:'20px', alignItems:'center' }}>
+                            <span style={{ fontSize:'0.8rem', opacity:0.6 }}>LOGGED IN AS <b>{user.username}</b></span>
+                            <button className="btn btn-outline" style={{padding:'6px 12px', fontSize:'0.75rem'}} onClick={() => { localStorage.removeItem('inkognito_token'); setUser(null); setView('auth'); }}>LOGOUT</button>
+                        </div>}
+                    </div>
+                </header>
+
+                <main>
+                    {view === 'auth' && <Auth onLogin={u => { setUser(u); setView('dashboard'); }} />}
+                    
+                    {view === 'dashboard' && <Dashboard 
+                        onNew={() => setView('intake')} 
+                        onViewReport={r => api.status(`report-${r.report_id}`).then(d => { setRep(d.report); setView('report'); })} 
+                    />}
+
+                    {view === 'intake' && <div className="fade-in">
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'32px' }}>
+                            <h2 className="serif-heading" style={{fontSize:'2rem'}}>New Verification</h2>
+                            <button className="btn btn-outline" onClick={() => setView('dashboard')}>Cancel</button>
+                        </div>
+                        <div className="panel">
+                            <form onSubmit={e => {
+                                e.preventDefault(); setErr('');
+                                const f = { name: e.target.name.value, phone: e.target.phone.value, city: e.target.city.value };
+                                api.run(f).then(d => { setJobId(d.job_id); setView('pipeline'); }).catch(e => setErr(e.message));
+                            }}>
+                                <div style={{ display:'grid', gap:'20px' }}>
+                                    <div><label className="input-label">Full Name</label><input name="name" required /></div>
+                                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px' }}>
+                                        <div><label className="input-label">Phone</label><input name="phone" required /></div>
+                                        <div><label className="input-label">City</label><input name="city" required /></div>
+                                    </div>
+                                    {err && <div style={{color:'var(--accent-crimson)'}}>{err}</div>}
+                                    <button className="btn btn-primary" style={{width:'100%', padding:'16px'}}>Run Intelligence Pipeline</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>}
+
+                    {view === 'pipeline' && <div style={{textAlign:'center', padding:'60px'}}>
+                        <Icon name="loader-2" className="spin" size={48} color="var(--accent-gold)" />
+                        <h2 className="serif-heading" style={{marginTop:'24px'}}>PIPELINE ACTIVE</h2>
+                        <div style={{fontSize:'0.8rem', marginTop:'10px', opacity:0.5}}>{jobId}</div>
+                        <PipelineStatus jobId={jobId} onComplete={d => { setRep(d.report); setView('report'); }} />
+                    </div>}
+
+                    {view === 'report' && <div className="fade-in">
+                        <div style={{display:'flex', justifyContent:'space-between', marginBottom:'32px'}}>
+                            <h1 className="serif-heading" style={{fontSize:'2.5rem'}}>{rep?.subject?.full_name || rep?.subject_name}</h1>
+                            <button className="btn btn-outline" onClick={() => setView('dashboard')}>Close</button>
+                        </div>
+                        {Object.entries(rep?.modules_run || {}).map(([n, m]) => m.ran && (
+                            <div key={n} className="panel" style={{marginBottom:'20px'}}>
+                                <h4 style={{color:'var(--accent-gold)', marginBottom:'12px'}}>{n}</h4>
+                                {m.findings?.length > 0 ? m.findings.map((f, i) => (
+                                    <div key={i} style={{padding:'12px', background:'var(--bg-input)', borderRadius:'8px', marginTop:'10px'}}>
+                                        <div style={{fontWeight:600}}>{f.title}</div>
+                                        <div style={{fontSize:'0.85rem', color:'var(--text-muted)'}}>{f.detail}</div>
+                                    </div>
+                                )) : <div style={{fontSize:'0.85rem', opacity:0.6}}>No records found.</div>}
+                            </div>
+                        ))}
+                    </div>}
+                </main>
+            </div>
+        );
+    }
+
+    function Auth({ onLogin }) {
+        const [u, setU] = useState('');
+        const [p, setP] = useState('');
+        const [err, setErr] = useState('');
+        return <div style={{display:'flex', justifyContent:'center', paddingTop:'60px'}}><div className="panel" style={{width:'100%', maxWidth:'400px'}}>
+            <h2 className="serif-heading" style={{textAlign:'center', marginBottom:'32px'}}>Authentication</h2>
+            {err && <div style={{color:'var(--accent-crimson)', marginBottom:'20px', textAlign:'center'}}>{err}</div>}
+            <form onSubmit={e => { e.preventDefault(); api.login(u, p).then(d => { localStorage.setItem('inkognito_token', d.token); api.user().then(onLogin); }).catch(e => setErr(e.message)); }}>
+                <div style={{marginBottom:'16px'}}><label className="input-label">Username</label><input value={u} onChange={e => setU(e.target.value)} required /></div>
+                <div style={{marginBottom:'24px'}}><label className="input-label">Password</label><input type="password" value={p} onChange={e => setP(e.target.value)} required /></div>
+                <button className="btn btn-primary" style={{width:'100%'}}>LOG IN</button>
+            </form>
+        </div></div>;
+    }
+
+    function Dashboard({ onNew, onViewReport }) {
+        const [reps, setReps] = useState([]);
+        const [load, setLoad] = useState(true);
+        useEffect(() => { api.reports().then(setReps).finally(() => setLoad(false)); }, []);
+        return <div className="fade-in">
+            <div style={{display:'flex', justifyContent:'space-between', marginBottom:'40px'}}>
+                <h2 className="serif-heading" style={{fontSize:'2rem'}}>Records</h2>
+                <button className="btn btn-primary" onClick={onNew}><Icon name="plus" /> New</button>
+            </div>
+            {load ? <div style={{textAlign:'center'}}><Icon name="loader-2" className="spin" /></div> :
+             reps.length === 0 ? <div className="panel" style={{textAlign:'center'}}>No reports.</div> :
+             <div style={{display:'grid', gap:'12px'}}>
+                {reps.map(r => (
+                    <div key={r.report_id} className="panel" onClick={() => onViewReport(r)} style={{cursor:'pointer', display:'flex', justifyContent:'space-between'}}>
+                        <span>{r.subject_name}</span>
+                        <Icon name="chevron-right" />
+                    </div>
+                ))}
+            </div>}
+        </div>;
+    }
+
+    function PipelineStatus({ jobId, onComplete }) {
+        const [job, setJob] = useState(null);
+        useEffect(() => {
+            const p = () => api.status(jobId).then(d => { setJob(d); if (d.status==='completed') onComplete(d); });
+            p(); const i = setInterval(p, 2500); return () => clearInterval(i);
+        }, [jobId]);
+        if (!job) return null;
+        return <div style={{marginTop:'20px', display:'grid', gap:'8px', maxWidth:'400px', margin:'20px auto'}}>
+            {job.modules.map(m => <div key={m.name} style={{fontSize:'0.8rem', opacity: m.status==='queued' ? 0.3 : 1}}>{m.name}: {m.status}</div>)}
+        </div>;
+    }
+
+    const r = ReactDOM.createRoot(document.getElementById('root'));
+    r.render(<App />);
+  </script>
 </body>
 </html>
