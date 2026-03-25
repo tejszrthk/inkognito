@@ -1,106 +1,35 @@
 import os
-import hashlib
-import uuid
-import sqlite3
 import bcrypt
+import uuid
 from datetime import datetime
-from pathlib import Path
-from urllib.parse import urlparse
-
-# Optional PostgreSQL support
-try:
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    HAS_POSTGRES = True
-except ImportError:
-    HAS_POSTGRES = False
-
-DEFAULT_DB_PATH = Path(__file__).parent / "inkognito.db"
+from pymongo import MongoClient
+from bson.objectid import ObjectId
 
 class Database:
     def __init__(self, db_url=None):
-        self.db_url = db_url or os.getenv("DATABASE_URL")
-        self.is_postgres = False
+        self.db_url = db_url or os.getenv("MONGO_URL") or os.getenv("DATABASE_URL")
+        # Fallback to local if no URL provided
+        if not self.db_url:
+            self.db_url = "mongodb://localhost:27017/inkognito"
         
-        if self.db_url and self.db_url.startswith("postgres"):
-            if not HAS_POSTGRES:
-                raise ImportError("psycopg2 is required for PostgreSQL support but not installed.")
-            self.is_postgres = True
+        self.client = MongoClient(self.db_url)
+        # Handle both connection strings with DB name and without
+        db_name = "inkognito"
+        if "/" in self.db_url.split("://")[-1]:
+            potential_db = self.db_url.split("/")[-1].split("?")[0]
+            if potential_db:
+                db_name = potential_db
         
+        self.db = self.client[db_name]
         self._init_db()
 
-    def _get_connection(self):
-        if self.is_postgres:
-            # PostgreSQL connection
-            result = urlparse(self.db_url)
-            db_name = result.path.lstrip('/')
-            conn = psycopg2.connect(
-                database=db_name,
-                user=result.username,
-                password=result.password,
-                host=result.hostname,
-                port=result.port
-            )
-            return conn
-        else:
-            # SQLite connection
-            conn = sqlite3.connect(self.db_url or DEFAULT_DB_PATH)
-            conn.row_factory = sqlite3.Row
-            return conn
-
     def _init_db(self):
-        if self.is_postgres:
-            conn = self._get_connection()
-            cur = conn.cursor()
-            try:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id SERIAL PRIMARY KEY,
-                        username TEXT UNIQUE NOT NULL,
-                        password_hash TEXT NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS reports (
-                        id SERIAL PRIMARY KEY,
-                        user_id INTEGER NOT NULL,
-                        report_id TEXT UNIQUE NOT NULL,
-                        subject_name TEXT NOT NULL,
-                        generated_at TIMESTAMP NOT NULL,
-                        report_path TEXT NOT NULL,
-                        FOREIGN KEY (user_id) REFERENCES users (id)
-                    )
-                """)
-                conn.commit()
-            finally:
-                cur.close()
-                conn.close()
-        else:
-            with self._get_connection() as conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        username TEXT UNIQUE NOT NULL,
-                        password_hash TEXT NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS reports (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        user_id INTEGER NOT NULL,
-                        report_id TEXT UNIQUE NOT NULL,
-                        subject_name TEXT NOT NULL,
-                        generated_at TIMESTAMP NOT NULL,
-                        report_path TEXT NOT NULL,
-                        FOREIGN KEY (user_id) REFERENCES users (id)
-                    )
-                """)
-                conn.commit()
+        # Ensure indexes for performance and uniqueness
+        self.db.users.create_index("username", unique=True)
+        self.db.reports.create_index("report_id", unique=True)
+        self.db.reports.create_index("user_id")
 
     def _hash_password(self, password: str) -> str:
-        # Use bcrypt for production security
         salt = bcrypt.gensalt()
         return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
@@ -108,113 +37,69 @@ class Database:
         try:
             return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
         except Exception:
-            # Fallback for old SHA256 hashes if any exist during transition
-            # This is optional but helps with the sudden switch
-            sha_hash = hashlib.sha256(password.encode()).hexdigest()
-            return sha_hash == hashed
+            return False
 
     def register_user(self, username, password):
         password_hash = self._hash_password(password)
+        user = {
+            "username": username,
+            "password_hash": password_hash,
+            "created_at": datetime.utcnow()
+        }
         try:
-            conn = self._get_connection()
-            if self.is_postgres:
-                cur = conn.cursor()
-                try:
-                    cur.execute(
-                        "INSERT INTO users (username, password_hash) VALUES (%s, %s) RETURNING id",
-                        (username, password_hash)
-                    )
-                    user_id = cur.fetchone()[0]
-                    conn.commit()
-                    return user_id
-                finally:
-                    cur.close()
-                    conn.close()
-            else:
-                with conn:
-                    cursor = conn.execute(
-                        "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                        (username, password_hash)
-                    )
-                    return cursor.lastrowid
+            result = self.db.users.insert_one(user)
+            return str(result.inserted_id)
         except Exception:
-            return None  # Username already exists or DB error
+            return None  # Username already exists
 
     def authenticate_user(self, username, password):
-        conn = self._get_connection()
-        if self.is_postgres:
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            try:
-                cur.execute("SELECT id, username, password_hash FROM users WHERE username = %s", (username,))
-                row = cur.fetchone()
-                if row and self._check_password(password, row['password_hash']):
-                    return {"id": row['id'], "username": row['username']}
-            finally:
-                cur.close()
-                conn.close()
-        else:
-            with conn:
-                row = conn.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,)).fetchone()
-                if row and self._check_password(password, row['password_hash']):
-                    return dict(row)
+        user = self.db.users.find_one({"username": username})
+        if user and self._check_password(password, user["password_hash"]):
+            return {
+                "id": str(user["_id"]),
+                "username": user["username"]
+            }
         return None
 
     def save_report_metadata(self, user_id, report_id, subject_name, generated_at, report_path):
-        conn = self._get_connection()
-        if self.is_postgres:
-            cur = conn.cursor()
+        # Convert generated_at to datetime if it's a string
+        if isinstance(generated_at, str):
             try:
-                cur.execute(
-                    """INSERT INTO reports (user_id, report_id, subject_name, generated_at, report_path) 
-                       VALUES (%s, %s, %s, %s, %s)""",
-                    (user_id, report_id, subject_name, generated_at, report_path)
-                )
-                conn.commit()
-            finally:
-                cur.close()
-                conn.close()
+                dt = datetime.fromisoformat(generated_at.replace('Z', '+00:00'))
+            except:
+                dt = datetime.utcnow()
         else:
-            with conn:
-                conn.execute(
-                    """INSERT INTO reports (user_id, report_id, subject_name, generated_at, report_path) 
-                       VALUES (?, ?, ?, ?, ?)""",
-                    (user_id, report_id, subject_name, generated_at, report_path)
-                )
+            dt = generated_at
+
+        report = {
+            "user_id": user_id,
+            "report_id": report_id,
+            "subject_name": subject_name,
+            "generated_at": dt,
+            "report_path": report_path
+        }
+        self.db.reports.insert_one(report)
 
     def get_user_reports(self, user_id):
-        conn = self._get_connection()
-        if self.is_postgres:
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            try:
-                cur.execute(
-                    "SELECT report_id, subject_name, generated_at, report_path FROM reports WHERE user_id = %s ORDER BY generated_at DESC",
-                    (user_id,)
-                )
-                return [dict(row) for row in cur.fetchall()]
-            finally:
-                cur.close()
-                conn.close()
-        else:
-            with conn:
-                rows = conn.execute(
-                    "SELECT report_id, subject_name, generated_at, report_path FROM reports WHERE user_id = ? ORDER BY generated_at DESC",
-                    (user_id,)
-                ).fetchall()
-                return [dict(row) for row in rows]
+        cursor = self.db.reports.find({"user_id": user_id}).sort("generated_at", -1)
+        reports = []
+        for doc in cursor:
+            reports.append({
+                "report_id": doc["report_id"],
+                "subject_name": doc["subject_name"],
+                "generated_at": doc["generated_at"].isoformat() if isinstance(doc["generated_at"], datetime) else doc["generated_at"],
+                "report_path": doc["report_path"]
+            })
+        return reports
 
     def get_user_by_id(self, user_id):
-        conn = self._get_connection()
-        if self.is_postgres:
-            cur = conn.cursor(cursor_factory=RealDictCursor)
-            try:
-                cur.execute("SELECT id, username FROM users WHERE id = %s", (user_id,))
-                row = cur.fetchone()
-                if row: return dict(row)
-            finally:
-                cur.close()
-                conn.close()
-        else:
-            with conn:
-                row = conn.execute("SELECT id, username FROM users WHERE id = ?", (user_id,)).fetchone()
-                if row: return dict(row)
+        try:
+            user = self.db.users.find_one({"_id": ObjectId(user_id)})
+            if user:
+                return {
+                    "id": str(user["_id"]),
+                    "username": user["username"]
+                }
+        except:
+            pass
         return None

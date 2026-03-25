@@ -1,16 +1,4 @@
 #!/usr/bin/env python3
-"""
-Inkognito API server.
-
-Serves the frontend and exposes a small JSON API:
-  POST /api/run         -> starts a background pipeline job
-  GET  /api/jobs/<id>   -> returns live job status + module progress
-  GET  /api/health      -> health check
-
-Run:
-  python api_server.py --host 127.0.0.1 --port 8000
-"""
-
 import argparse
 import json
 import os
@@ -27,70 +15,21 @@ from inkognito_models import SubjectProfile
 from inkognito_pipeline import SearchPipeline, save_report
 from database import Database
 
+# --- Configuration ---
 ROOT_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = ROOT_DIR / "frontend"
+REPORTS_DIR = ROOT_DIR / "reports"
+REPORTS_DIR.mkdir(exist_ok=True)
 
 DB = Database()
-SESSIONS: dict[str, int] = {}  # token -> user_id
+SESSIONS: dict[str, str] = {}  # token -> user_id (string for Mongo ObjectId)
 SESSIONS_LOCK = threading.Lock()
-
-MODULE_ID_BY_NAME = {
-    "eCourts": "ecourts",
-    "MCA21": "mca21",
-    "GST": "gst",
-    "Google Search": "google",
-    "Property Records": "property",
-    "Social Media": "social",
-    "Reverse Image Search": "image",
-    "Phone Intelligence": "phone",
-    "Matrimonial Cross-check": "matrimonial",
-    "NCDRC": "ncdrc",
-    "NCLT": "nclt",
-    "SEBI": "sebi",
-    "EPFO": "epfo",
-}
-
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
 
-
+# --- Helpers ---
 def _now_iso() -> str:
-    return datetime.now().isoformat()
-
-
-def _parse_social_urls(raw_urls: str) -> dict:
-    parsed: dict[str, str | None] = {
-        "linkedin_url": None,
-        "instagram_username": None,
-        "facebook_profile_id": None,
-    }
-
-    if not raw_urls:
-        return parsed
-
-    chunks = [x.strip() for x in raw_urls.split(",") if x.strip()]
-    for chunk in chunks:
-        lowered = chunk.lower()
-
-        if "linkedin.com/" in lowered and not parsed["linkedin_url"]:
-            parsed["linkedin_url"] = chunk
-            continue
-
-        if "instagram.com/" in lowered and not parsed["instagram_username"]:
-            # Best-effort username extraction from URL path.
-            path = chunk.split("instagram.com/")[-1].strip("/")
-            if path:
-                parsed["instagram_username"] = path.split("/")[0].lstrip("@")
-            continue
-
-        if "facebook.com/" in lowered and not parsed["facebook_profile_id"]:
-            path = chunk.split("facebook.com/")[-1].strip("/")
-            if path:
-                parsed["facebook_profile_id"] = path.split("/")[0]
-            continue
-
-    return parsed
-
+    return datetime.utcnow().isoformat() + "Z"
 
 def _build_subject(payload: dict) -> SubjectProfile:
     name = str(payload.get("name", "")).strip()
@@ -101,77 +40,31 @@ def _build_subject(payload: dict) -> SubjectProfile:
     finance_role = bool(payload.get("financeRole", False))
     social_urls = str(payload.get("socialUrls", "")).strip()
 
-    if not name:
-        raise ValueError("name is required")
-    if not city:
-        raise ValueError("city is required")
-
-    social = _parse_social_urls(social_urls)
+    if not name or not city or not phone:
+        raise ValueError("Name, City, and Phone are required for identity verification.")
 
     subject = SubjectProfile(
         full_name=name,
         current_city=city,
-        mobile=phone or None,
+        mobile=phone,
         employer_name=employer or None,
         business_name=business or None,
         company_name=business or None,
-        linkedin_url=social["linkedin_url"],
-        instagram_username=social["instagram_username"],
-        facebook_profile_id=social["facebook_profile_id"],
     )
-
-    # Optional flag respected by SubjectProfile.has_finance_role().
     if finance_role:
         setattr(subject, "claims_finance_role", True)
+    
+    # Simple social parsing
+    if social_urls:
+        for url in [u.strip() for u in social_urls.split(",")]:
+            if "linkedin.com" in url: subject.linkedin_url = url
+            elif "instagram.com" in url: subject.instagram_username = url.split("/")[-1]
+            elif "facebook.com" in url: subject.facebook_profile_id = url.split("/")[-1]
 
     return subject
 
-
-def _initial_modules() -> list[dict]:
-    modules = []
-    for module_name, _ in SearchPipeline.module_registry():
-        modules.append(
-            {
-                "id": MODULE_ID_BY_NAME.get(module_name, module_name.lower()),
-                "name": module_name,
-                "status": "queued",
-                "skipReason": "",
-                "error": "",
-                "findingsCount": 0,
-                "durationSec": 0.0,
-            }
-        )
-    return modules
-
-
-def _elapsed_seconds(job: dict) -> float:
-    started_at = job.get("started_monotonic")
-    if started_at is None:
-        return 0.0
-
-    finished_at = job.get("finished_monotonic")
-    end = finished_at if finished_at is not None else time.monotonic()
-    return max(0.0, end - started_at)
-
-
-def _job_payload(job: dict) -> dict:
-    return {
-        "job_id": job["job_id"],
-        "status": job["status"],
-        "created_at": job["created_at"],
-        "started_at": job.get("started_at"),
-        "finished_at": job.get("finished_at"),
-        "elapsed_sec": float(round(_elapsed_seconds(job), 2)),
-        "modules": job["modules"],
-        "current_module": job.get("current_module", ""),
-        "report_id": job.get("report_id", ""),
-        "report_path": job.get("report_path", ""),
-        "report": job.get("report"),
-        "error": job.get("error", ""),
-    }
-
-
-def _run_job(job_id: str, subject: SubjectProfile, user_id: int):
+# --- Background Worker ---
+def _run_job(job_id: str, subject: SubjectProfile, user_id: str):
     with JOBS_LOCK:
         job = JOBS[job_id]
         job["status"] = "running"
@@ -179,330 +72,176 @@ def _run_job(job_id: str, subject: SubjectProfile, user_id: int):
         job["started_monotonic"] = time.monotonic()
 
     pipeline = SearchPipeline(subject)
-
-    module_index = {m["name"]: i for i, m in enumerate(JOBS[job_id]["modules"])}
-
-    def on_module_start(module_name: str, _idx: int, _total: int):
+    
+    def on_module_start(name, idx, total):
         with JOBS_LOCK:
             j = JOBS.get(job_id)
-            if not j:
-                return
-            i = module_index.get(module_name)
-            if i is None:
-                return
-            j["modules"][i]["status"] = "running"
-            j["current_module"] = module_name
+            if j: j["current_module"] = name
 
-    def on_module_complete(module_name: str, module_result, _idx: int, _total: int):
+    def on_module_complete(name, result, idx, total):
         with JOBS_LOCK:
             j = JOBS.get(job_id)
-            if not j:
-                return
-            i = module_index.get(module_name)
-            if i is None:
-                return
-
-            if module_result.skipped:
-                status = "skipped"
-            elif module_result.success:
-                status = "complete"
-            else:
-                status = "failed"
-
-            j["modules"][i].update(
-                {
-                    "status": status,
-                    "skipReason": module_result.skip_reason or "",
-                    "error": module_result.error or "",
-                    "findingsCount": len(module_result.findings),
-                    "durationSec": round(module_result.duration_sec, 2),
-                }
-            )
+            if not j: return
+            mod = next((m for m in j["modules"] if m["name"] == name), None)
+            if mod:
+                mod.update({
+                    "status": "complete" if result.success else ("skipped" if result.skipped else "failed"),
+                    "findingsCount": len(result.findings),
+                    "durationSec": round(result.duration_sec, 2),
+                    "error": result.error or "",
+                    "skipReason": result.skip_reason or ""
+                })
 
     try:
-        report = pipeline.run(
-            on_module_start=on_module_start,
-            on_module_complete=on_module_complete,
-        )
-        report_path = save_report(report, output_dir=str(ROOT_DIR / "reports"))
-
-        # Save to database
+        report = pipeline.run(on_module_start=on_module_start, on_module_complete=on_module_complete)
+        report_path = save_report(report, output_dir=str(REPORTS_DIR))
+        
         DB.save_report_metadata(
             user_id=user_id,
             report_id=report.report_id,
             subject_name=report.subject.full_name,
             generated_at=report.generated_at,
-            report_path=report_path,
+            report_path=report_path
         )
 
         with JOBS_LOCK:
             job = JOBS[job_id]
-            job["status"] = "completed"
-            job["finished_at"] = _now_iso()
-            job["finished_monotonic"] = time.monotonic()
-            job["report_id"] = report.report_id
-            job["report_path"] = report_path
-            job["report"] = report.to_dict()
-            job["current_module"] = ""
-
-    except Exception as exc:
+            job.update({
+                "status": "completed",
+                "finished_at": _now_iso(),
+                "report_id": report.report_id,
+                "report": report.to_dict()
+            })
+    except Exception as e:
         with JOBS_LOCK:
-            job = JOBS[job_id]
-            job["status"] = "failed"
-            job["finished_at"] = _now_iso()
-            job["finished_monotonic"] = time.monotonic()
-            job["error"] = str(exc)
-            job["current_module"] = ""
+            if job_id in JOBS:
+                JOBS[job_id].update({"status": "failed", "error": str(e)})
 
-
+# --- Request Handler ---
 class InkognitoHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(FRONTEND_DIR), **kwargs)
 
-    def log_message(self, format: str, *args: Any) -> None:
-        # Keep server logs concise.
-        print("[api] " + (format % args))
-
-    def _send_json(self, status: int, payload: dict):
-        body = json.dumps(payload).encode("utf-8")
+    def _send_json(self, status: int, data: Any):
+        body = json.dumps(data).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _read_json_body(self) -> dict:
-        length = int(self.headers.get("Content-Length", "0"))
-        if length <= 0:
-            return {}
-        raw = self.rfile.read(length)
-        if not raw:
-            return {}
-        return json.loads(raw.decode("utf-8"))
-
-    def do_OPTIONS(self):
-        self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
+        self.wfile.write(body)
 
-    def _get_auth_user(self):
-        auth_header = self.headers.get("Authorization", "")
-        if not auth_header.startswith("Bearer "):
-            return None
-        token = auth_header.split(" ", 1)[1]
+    def _read_json(self):
+        length = int(self.headers.get("Content-Length", 0))
+        return json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+
+    def _get_user(self):
+        auth = self.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "): return None
+        token = auth.split(" ")[1]
         with SESSIONS_LOCK:
-            user_id = SESSIONS.get(token)
-        if user_id:
-            return DB.get_user_by_id(user_id)
-        return None
+            uid = SESSIONS.get(token)
+        return DB.get_user_by_id(uid) if uid else None
+
+    def do_OPTIONS(self):
+        self._send_json(204, {})
 
     def do_POST(self):
-        parsed = urlparse(self.path)
-
-        if parsed.path == "/api/register":
-            payload = self._read_json_body()
-            username = payload.get("username")
-            password = payload.get("password")
-            if not username or not password:
-                self._send_json(400, {"error": "Username and password required"})
-                return
-            user_id = DB.register_user(username, password)
-            if user_id:
-                self._send_json(201, {"message": "User registered successfully"})
-            else:
-                self._send_json(409, {"error": "Username already exists"})
+        path = urlparse(self.path).path
+        
+        if path == "/api/register":
+            data = self._read_json()
+            uid = DB.register_user(data.get("username"), data.get("password"))
+            if uid: self._send_json(201, {"message": "Registered"})
+            else: self._send_json(400, {"error": "Username taken"})
             return
 
-        if parsed.path == "/api/login":
-            payload = self._read_json_body()
-            username = payload.get("username")
-            password = payload.get("password")
-            user = DB.authenticate_user(username, password)
+        if path == "/api/login":
+            data = self._read_json()
+            user = DB.authenticate_user(data.get("username"), data.get("password"))
             if user:
                 token = uuid.uuid4().hex
-                with SESSIONS_LOCK:
-                    SESSIONS[token] = user["id"]
+                with SESSIONS_LOCK: SESSIONS[token] = user["id"]
                 self._send_json(200, {"token": token, "user": user})
-            else:
-                self._send_json(401, {"error": "Invalid credentials"})
+            else: self._send_json(401, {"error": "Invalid credentials"})
             return
 
-        if parsed.path == "/api/logout":
-            auth_header = self.headers.get("Authorization", "")
-            if auth_header.startswith("Bearer "):
-                token = auth_header.split(" ", 1)[1]
-                with SESSIONS_LOCK:
-                    SESSIONS.pop(token, None)
-            self._send_json(200, {"message": "Logged out"})
-            return
-
-        if parsed.path == "/api/run":
-            user = self._get_auth_user()
-            if not user:
-                self._send_json(401, {"error": "Authentication required"})
-                return
-
+        if path == "/api/run":
+            user = self._get_user()
+            if not user: return self._send_json(401, {"error": "Auth required"})
+            
             try:
-                payload = self._read_json_body()
-                subject = _build_subject(payload)
-            except (ValueError, json.JSONDecodeError) as exc:
-                self._send_json(400, {"error": str(exc)})
-                return
+                subject = _build_subject(self._read_json())
+            except ValueError as e: return self._send_json(400, {"error": str(e)})
 
-            job_id_full = uuid.uuid4().hex
-            job_id = job_id_full[:12]
-            modules = _initial_modules()
-
+            job_id = uuid.uuid4().hex[:12]
             with JOBS_LOCK:
                 JOBS[job_id] = {
-                    "job_id": job_id,
-                    "status": "queued",
-                    "created_at": _now_iso(),
-                    "started_at": None,
-                    "finished_at": None,
-                    "started_monotonic": None,
-                    "finished_monotonic": None,
-                    "current_module": "",
-                    "modules": modules,
-                    "report_id": "",
-                    "report_path": "",
-                    "report": None,
-                    "error": "",
+                    "job_id": job_id, "status": "queued", "created_at": _now_iso(),
+                    "modules": [{"name": n, "status": "queued"} for n, _ in SearchPipeline.module_registry()]
                 }
-
-            worker = threading.Thread(
-                target=_run_job,
-                args=(job_id, subject, user["id"]),
-                daemon=True,
-            )
-            worker.start()
-
-            self._send_json(
-                202,
-                {
-                    "job_id": job_id,
-                    "status": "queued",
-                    "modules": modules,
-                },
-            )
+            
+            threading.Thread(target=_run_job, args=(job_id, subject, user["id"]), daemon=True).start()
+            self._send_json(202, {"job_id": job_id})
             return
 
-        self._send_json(404, {"error": "Unknown endpoint"})
+        self._send_json(404, {"error": "Not found"})
 
     def do_GET(self):
-        parsed = urlparse(self.path)
-
-        if parsed.path == "/api/health":
-            self._send_json(200, {"status": "ok", "time": _now_iso()})
+        path = urlparse(self.path).path
+        
+        if path == "/api/user":
+            user = self._get_user()
+            if user: self._send_json(200, user)
+            else: self._send_json(401, {"error": "Auth required"})
             return
 
-        if parsed.path == "/api/user":
-            user = self._get_auth_user()
-            if user:
-                self._send_json(200, user)
-            else:
-                self._send_json(401, {"error": "Authentication required"})
+        if path == "/api/reports":
+            user = self._get_user()
+            if not user: return self._send_json(401, {"error": "Auth required"})
+            self._send_json(200, DB.get_user_reports(user["id"]))
             return
 
-        if parsed.path == "/api/reports":
-            user = self._get_auth_user()
-            if not user:
-                self._send_json(401, {"error": "Authentication required"})
-                return
-            reports = DB.get_user_reports(user["id"])
-            self._send_json(200, reports)
-            return
-
-        if parsed.path.startswith("/api/jobs/"):
-            job_id = parsed.path.rsplit("/", 1)[-1].strip()
-            
-            # Special case for historical reports: /api/jobs/report-<id>
-            if job_id.startswith("report-"):
-                report_id = job_id.replace("report-", "")
-                user = self._get_auth_user()
-                user_id = user["id"] if user else None
+        if path.startswith("/api/jobs/"):
+            jid = path.split("/")[-1]
+            if jid.startswith("report-"):
+                # Historical report lookup
+                rid = jid.replace("report-", "")
+                user = self._get_user()
+                if not user: return self._send_json(401, {"error": "Auth required"})
                 
-                if not user_id:
-                    self._send_json(401, {"error": "Authentication required"})
+                # Find report in DB
+                report_meta = next((r for r in DB.get_user_reports(user["id"]) if r["report_id"] == rid), None)
+                if report_meta and os.path.exists(report_meta["report_path"]):
+                    with open(report_meta["report_path"], "r") as f:
+                        self._send_json(200, {"status": "completed", "report": json.load(f)})
                     return
-                
-                # Check database for this report
-                report_row = None
-                conn = DB._get_connection()
-                try:
-                    if DB.is_postgres:
-                        from psycopg2.extras import RealDictCursor
-                        cur = conn.cursor(cursor_factory=RealDictCursor)
-                        cur.execute(
-                            "SELECT report_path, subject_name FROM reports WHERE report_id = %s AND user_id = %s",
-                            (report_id, user_id)
-                        )
-                        report_row = cur.fetchone()
-                        cur.close()
-                    else:
-                        row = conn.execute(
-                            "SELECT report_path, subject_name FROM reports WHERE report_id = ? AND user_id = ?",
-                            (report_id, user_id)
-                        ).fetchone()
-                        if row: report_row = dict(row)
-                finally:
-                    conn.close()
-                
-                if report_row and os.path.exists(report_row["report_path"]):
-                    with open(report_row["report_path"], "r") as f:
-                        report_json = json.load(f)
-                    self._send_json(200, {
-                        "job_id": job_id,
-                        "status": "completed",
-                        "report_id": report_id,
-                        "report": report_json,
-                        "modules": [], # Modules detail not needed for historical view
-                        "elapsed_sec": 0
-                    })
-                    return
-                else:
-                    self._send_json(404, {"error": "Report not found or access denied"})
-                    return
+                return self._send_json(404, {"error": "Report not found"})
 
             with JOBS_LOCK:
-                job = JOBS.get(job_id)
-                payload = _job_payload(job) if job else None
-            if payload is None:
-                self._send_json(404, {"error": "Job not found"})
-            else:
-                self._send_json(200, payload)
+                job = JOBS.get(jid)
+            if job:
+                # Calculate elapsed time for live jobs
+                elapsed = 0
+                if job.get("started_monotonic"):
+                    elapsed = time.monotonic() - job["started_monotonic"]
+                self._send_json(200, {**job, "elapsed_sec": round(elapsed, 2)})
+            else: self._send_json(404, {"error": "Job not found"})
             return
 
-        # Static frontend serving
-        if parsed.path in ("", "/"):
-            self.path = "/index.html"
+        if path in ["", "/"]: self.path = "/index.html"
         return super().do_GET()
 
-
-def main():
-    parser = argparse.ArgumentParser(description="Inkognito API server")
-    parser.add_argument("--host", default=os.getenv("HOST", "127.0.0.1"))
+# --- Main ---
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", default=os.getenv("HOST", "0.0.0.0"))
     parser.add_argument("--port", type=int, default=int(os.getenv("PORT", 8000)))
     args = parser.parse_args()
-
-    if not FRONTEND_DIR.exists():
-        raise SystemExit(f"frontend directory not found: {FRONTEND_DIR}")
-
+    
     server = ThreadingHTTPServer((args.host, args.port), InkognitoHandler)
-    print(f"Inkognito server listening at http://{args.host}:{args.port}")
-    print("Press Ctrl+C to stop.")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
-
-
-if __name__ == "__main__":
-    main()
+    print(f"🚀 Inkognito v1 (Refactored) listening on http://{args.host}:{args.port}")
+    try: server.serve_forever()
+    except KeyboardInterrupt: pass
+    finally: server.server_close()
