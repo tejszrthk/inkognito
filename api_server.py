@@ -19,10 +19,17 @@ from database import Database
 ROOT_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = ROOT_DIR / "frontend"
 REPORTS_DIR = ROOT_DIR / "reports"
+# Reports folder
 REPORTS_DIR.mkdir(exist_ok=True)
 
-DB = Database()
-SESSIONS: dict[str, str] = {}  # token -> user_id (string for Mongo ObjectId)
+_DB = None
+def get_db():
+    global _DB
+    if _DB is None:
+        _DB = Database()
+    return _DB
+
+SESSIONS: dict[str, str] = {} # token -> user_id (string)
 SESSIONS_LOCK = threading.Lock()
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
@@ -96,7 +103,7 @@ def _run_job(job_id: str, subject: SubjectProfile, user_id: str):
         report = pipeline.run(on_module_start=on_module_start, on_module_complete=on_module_complete)
         report_path = save_report(report, output_dir=str(REPORTS_DIR))
         
-        DB.save_report_metadata(
+        get_db().save_report_metadata(
             user_id=user_id,
             report_id=report.report_id,
             subject_name=report.subject.full_name,
@@ -142,7 +149,7 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
         token = auth.split(" ")[1]
         with SESSIONS_LOCK:
             uid = SESSIONS.get(token)
-        return DB.get_user_by_id(uid) if uid else None
+        return get_db().get_user_by_id(uid) if uid else None
 
     def do_OPTIONS(self):
         self._send_json(204, {})
@@ -152,14 +159,14 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
         
         if path == "/api/register":
             data = self._read_json()
-            uid = DB.register_user(data.get("username"), data.get("password"))
+            uid = get_db().register_user(data.get("username"), data.get("password"))
             if uid: self._send_json(201, {"message": "Registered"})
             else: self._send_json(400, {"error": "Username taken"})
             return
 
         if path == "/api/login":
             data = self._read_json()
-            user = DB.authenticate_user(data.get("username"), data.get("password"))
+            user = get_db().authenticate_user(data.get("username"), data.get("password"))
             if user:
                 token = uuid.uuid4().hex
                 with SESSIONS_LOCK: SESSIONS[token] = user["id"]
@@ -191,6 +198,10 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         
+        if path == "/api/ping":
+            self._send_json(200, {"status": "alive", "db": "connected" if get_db().db else "disconnected"})
+            return
+
         if path == "/api/user":
             user = self._get_user()
             if user: self._send_json(200, user)
@@ -200,7 +211,7 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
         if path == "/api/reports":
             user = self._get_user()
             if not user: return self._send_json(401, {"error": "Auth required"})
-            self._send_json(200, DB.get_user_reports(user["id"]))
+            self._send_json(200, get_db().get_user_reports(user["id"]))
             return
 
         if path.startswith("/api/jobs/"):
@@ -212,7 +223,7 @@ class InkognitoHandler(SimpleHTTPRequestHandler):
                 if not user: return self._send_json(401, {"error": "Auth required"})
                 
                 # Find report in DB
-                report_meta = next((r for r in DB.get_user_reports(user["id"]) if r["report_id"] == rid), None)
+                report_meta = next((r for r in get_db().get_user_reports(user["id"]) if r["report_id"] == rid), None)
                 if report_meta and os.path.exists(report_meta["report_path"]):
                     with open(report_meta["report_path"], "r") as f:
                         self._send_json(200, {"status": "completed", "report": json.load(f)})
